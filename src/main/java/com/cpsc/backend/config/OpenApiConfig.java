@@ -20,8 +20,8 @@ public class OpenApiConfig {
                         .version("1.0.0")
                         .description("REST API for CPSC Cornerstone Project")
                         .contact(new Contact()
-                                .name("CPSC Team")
-                                .email("support@cpsc.com")))
+                                .name("Abdelrahman Sallam")
+                                .email("avalonsallam@gmail.com")))
                 .servers(List.of(
                         new Server()
                                 .url("http://localhost:8080")
