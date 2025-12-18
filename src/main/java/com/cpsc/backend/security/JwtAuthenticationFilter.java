@@ -29,11 +29,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 // Decode the JWT token (basic validation)
                 DecodedJWT decodedJWT = JWT.decode(token);
-                String username = decodedJWT.getClaim("cognito:username").asString();
                 
-                if (username != null) {
+                // Try to get email from the 'email' claim first, fallback to 'cognito:username'
+                String email = decodedJWT.getClaim("email").asString();
+                if (email == null || email.isEmpty()) {
+                    email = decodedJWT.getClaim("cognito:username").asString();
+                }
+                
+                if (email != null) {
                     UsernamePasswordAuthenticationToken authentication = 
-                        new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                        new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             } catch (Exception e) {
