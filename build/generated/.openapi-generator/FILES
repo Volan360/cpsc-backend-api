@@ -1,0 +1,6 @@
+.openapi-generator-ignore
+README.md
+pom.xml
+src/main/java/com/cpsc/backend/api/ApiUtil.java
+src/main/java/com/cpsc/backend/api/TestApi.java
+src/main/java/com/cpsc/backend/model/Hello200Response.java

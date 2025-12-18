@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: CPSC Backend API
+  description: REST API for CPSC Cornerstone Project
+  version: 1.0.0
+  contact:
+    name: CPSC Team
+    email: support@cpsc.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local Development Server
+
+tags:
+  - name: Test
+    description: Test endpoints for API verification
+
+paths:
+  /api/hello:
+    get:
+      tags:
+        - Test
+      summary: Get a hello message
+      description: Returns a simple greeting message to verify API is running
+      operationId: hello
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Hello from CPSC Backend API!"
+                  status:
+                    type: string
+                    example: "success"
