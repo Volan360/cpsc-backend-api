@@ -1,0 +1,42 @@
+# Build outputs
+build/
+.gradle/
+bin/
+out/
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# Test files
+src/test/
+
+# Logs
+*.log
+
+# Postman collections
+*.postman_collection.json
+
+# Temporary files
+tmp/
+*.tmp
+*.bak
+*.swp
+*~
