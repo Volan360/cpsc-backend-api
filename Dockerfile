@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for CPSC Backend API
 # Stage 1: Build the application
-FROM gradle:8.14-jdk24 AS builder
+FROM public.ecr.aws/docker/library/gradle:8.14-jdk24 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -22,7 +22,7 @@ COPY src src
 RUN ./gradlew clean build -x test --no-daemon
 
 # Stage 2: Create the runtime image
-FROM eclipse-temurin:24-jre-alpine
+FROM public.ecr.aws/docker/library/eclipse-temurin:24-jre-alpine
 
 # Set working directory
 WORKDIR /app
