@@ -16,7 +16,7 @@ public class TestController implements TestApi {
         Hello200Response response = new Hello200Response();
         response.setMessage("Hello from CPSC Backend API!");
         response.setStatus("success");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response); // Auto-deployed via CI/CD
     }
 
     @Override
@@ -28,6 +28,6 @@ public class TestController implements TestApi {
         response.setEmail(authentication.getName());
         response.setAuthenticated(true);
         
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response); // Auto-deployed via CI/CD
     }
 }
