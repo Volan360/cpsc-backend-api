@@ -1,0 +1,12 @@
+# CODEOWNERS - Auto-assigns reviewers for pull requests
+# Each line is a file pattern followed by one or more owners
+
+# Default owner for everything in the repo
+* @Volan360
+
+# Backend code requires review
+/src/** @Volan360
+
+# Infrastructure changes require review
+/buildspec.yml @Volan360
+/Dockerfile @Volan360
