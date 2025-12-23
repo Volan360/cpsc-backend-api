@@ -14,7 +14,7 @@ public class TestController implements TestApi {
     @Override
     public ResponseEntity<Hello200Response> hello() {
         Hello200Response response = new Hello200Response();
-        response.setMessage("Hello from CPSC Backend API!");
+        response.setMessage("Hello from CPSC Backend API - DEVL Feature Branch!");
         response.setStatus("success");
         return ResponseEntity.ok(response); // Auto-deployed via CI/CD
     }
