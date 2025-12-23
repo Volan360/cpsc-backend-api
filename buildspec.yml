@@ -10,10 +10,10 @@ phases:
       - if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG="${COMMIT_HASH:=latest}"; fi
       - CONTAINER_NAME=${ENVIRONMENT:+cpsc-backend-api-$ENVIRONMENT}
       - CONTAINER_NAME=${CONTAINER_NAME:-cpsc-backend-api}
-      - echo Environment: $ENVIRONMENT
-      - echo Image tag: $IMAGE_TAG
-      - echo Container name: $CONTAINER_NAME
-      - echo Build started on `date`
+      - echo Environment is $ENVIRONMENT
+      - echo Image tag is $IMAGE_TAG
+      - echo Container name is $CONTAINER_NAME
+      - echo Build started on $(date)
   
   build:
     commands:
@@ -22,7 +22,7 @@ phases:
   
   post_build:
     commands:
-      - echo Build completed on `date`
+      - echo Build completed on $(date)
       - echo Pushing the Docker image...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo Writing image definitions file...
