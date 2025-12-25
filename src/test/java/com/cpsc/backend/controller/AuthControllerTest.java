@@ -1,0 +1,220 @@
+package com.cpsc.backend.controller;
+
+import com.cpsc.backend.model.*;
+import com.cpsc.backend.service.CognitoService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AuthControllerTest {
+
+    @Mock
+    private CognitoService cognitoService;
+
+    @InjectMocks
+    private AuthController authController;
+
+    private SignUpRequest signUpRequest;
+    private LoginRequest loginRequest;
+    private ConfirmSignUpRequest confirmRequest;
+    private ResendCodeRequest resendRequest;
+
+    @BeforeEach
+    void setUp() {
+        signUpRequest = new SignUpRequest();
+        signUpRequest.setEmail("test@example.com");
+        signUpRequest.setPassword("Test@1234");
+
+        loginRequest = new LoginRequest();
+        loginRequest.setEmail("test@example.com");
+        loginRequest.setPassword("Test@1234");
+
+        confirmRequest = new ConfirmSignUpRequest();
+        confirmRequest.setEmail("test@example.com");
+        confirmRequest.setConfirmationCode("123456");
+
+        resendRequest = new ResendCodeRequest();
+        resendRequest.setEmail("test@example.com");
+    }
+
+    @Test
+    void signUp_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "User registered successfully");
+        serviceResult.put("userSub", "test-user-sub");
+        serviceResult.put("confirmed", "false");
+
+        when(cognitoService.signUp(anyString(), anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<SignUpResponse> response = authController.signUp(signUpRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("User registered successfully");
+        assertThat(response.getBody().getUserSub()).isEqualTo("test-user-sub");
+        assertThat(response.getBody().getConfirmed()).isEqualTo("false");
+
+        verify(cognitoService).signUp("test@example.com", "Test@1234");
+    }
+
+    @Test
+    void signUp_Failure_RuntimeException() {
+        // Arrange
+        when(cognitoService.signUp(anyString(), anyString()))
+                .thenThrow(new RuntimeException("Username already exists"));
+
+        // Act
+        ResponseEntity<SignUpResponse> response = authController.signUp(signUpRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).signUp("test@example.com", "Test@1234");
+    }
+
+    @Test
+    void confirmSignUp_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "User confirmed successfully");
+
+        when(cognitoService.confirmSignUp(anyString(), anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ConfirmSignUpResponse> response = authController.confirmSignUp(confirmRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("User confirmed successfully");
+
+        verify(cognitoService).confirmSignUp("test@example.com", "123456");
+    }
+
+    @Test
+    void confirmSignUp_Failure_InvalidCode() {
+        // Arrange
+        when(cognitoService.confirmSignUp(anyString(), anyString()))
+                .thenThrow(new RuntimeException("Invalid verification code"));
+
+        // Act
+        ResponseEntity<ConfirmSignUpResponse> response = authController.confirmSignUp(confirmRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmSignUp("test@example.com", "123456");
+    }
+
+    @Test
+    void resendConfirmationCode_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "Verification code resent successfully");
+
+        when(cognitoService.resendConfirmationCode(anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ResendCodeResponse> response = authController.resendConfirmationCode(resendRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Verification code resent successfully");
+
+        verify(cognitoService).resendConfirmationCode("test@example.com");
+    }
+
+    @Test
+    void resendConfirmationCode_Failure() {
+        // Arrange
+        when(cognitoService.resendConfirmationCode(anyString()))
+                .thenThrow(new RuntimeException("Error resending code"));
+
+        // Act
+        ResponseEntity<ResendCodeResponse> response = authController.resendConfirmationCode(resendRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).resendConfirmationCode("test@example.com");
+    }
+
+    @Test
+    void login_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("accessToken", "access-token");
+        serviceResult.put("idToken", "id-token");
+        serviceResult.put("refreshToken", "refresh-token");
+        serviceResult.put("expiresIn", "3600");
+        serviceResult.put("tokenType", "Bearer");
+
+        when(cognitoService.login(anyString(), anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<LoginResponse> response = authController.login(loginRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getBody().getIdToken()).isEqualTo("id-token");
+        assertThat(response.getBody().getRefreshToken()).isEqualTo("refresh-token");
+        assertThat(response.getBody().getExpiresIn()).isEqualTo("3600");
+        assertThat(response.getBody().getTokenType()).isEqualTo("Bearer");
+
+        verify(cognitoService).login("test@example.com", "Test@1234");
+    }
+
+    @Test
+    void login_Failure_IncorrectCredentials() {
+        // Arrange
+        when(cognitoService.login(anyString(), anyString()))
+                .thenThrow(new RuntimeException("Incorrect username or password"));
+
+        // Act
+        ResponseEntity<LoginResponse> response = authController.login(loginRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).login("test@example.com", "Test@1234");
+    }
+
+    @Test
+    void login_Failure_UserNotConfirmed() {
+        // Arrange
+        when(cognitoService.login(anyString(), anyString()))
+                .thenThrow(new RuntimeException("User is not confirmed. Please verify your email."));
+
+        // Act
+        ResponseEntity<LoginResponse> response = authController.login(loginRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).login("test@example.com", "Test@1234");
+    }
+}
