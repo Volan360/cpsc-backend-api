@@ -176,6 +176,82 @@
       ]
     },
     {
+      "name": "Institutions",
+      "item": [
+        {
+          "name": "Create Institution",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institutionName\": \"Chase Bank\",\n  \"startingBalance\": 324.50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions"
+              ]
+            },
+            "description": "Create a new financial institution with a starting balance for the authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Institutions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Maximum number of institutions to return (1-100, default 50)"
+                },
+                {
+                  "key": "lastEvaluatedKey",
+                  "value": "",
+                  "description": "Pagination token from previous response (use nextToken value)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get financial institutions for the authenticated user with pagination support. Use the nextToken from response to get next page."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Public Endpoints",
       "item": [
         {

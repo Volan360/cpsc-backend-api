@@ -23,7 +23,10 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.21.0')
     implementation 'software.amazon.awssdk:cognitoidentityprovider'
     implementation 'software.amazon.awssdk:secretsmanager'
+    implementation 'software.amazon.awssdk:dynamodb'
+    implementation 'software.amazon.awssdk:dynamodb-enhanced'
     implementation 'com.auth0:java-jwt:4.4.0'
+    implementation 'com.auth0:jwks-rsa:0.22.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     
     compileOnly 'jakarta.validation:jakarta.validation-api:3.0.2'

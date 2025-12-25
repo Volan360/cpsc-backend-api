@@ -11,6 +11,8 @@ import com.cpsc.backend.model.ResendCodeResponse;
 import com.cpsc.backend.model.SignUpRequest;
 import com.cpsc.backend.model.SignUpResponse;
 import com.cpsc.backend.service.CognitoService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +22,7 @@ import java.util.Map;
 @RestController
 public class AuthController implements AuthenticationApi {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final CognitoService cognitoService;
 
     public AuthController(CognitoService cognitoService) {
@@ -86,6 +89,7 @@ public class AuthController implements AuthenticationApi {
 
     @Override
     public ResponseEntity<LoginResponse> login(LoginRequest request) {
+        logger.info("Login request received for email: {}", request.getEmail());
         try {
             Map<String, String> result = cognitoService.login(
                 request.getEmail(),
@@ -99,8 +103,10 @@ public class AuthController implements AuthenticationApi {
             response.setExpiresIn(result.get("expiresIn"));
             response.setTokenType(result.get("tokenType"));
             
+            logger.info("Login successful for email: {}", request.getEmail());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            logger.error("Login failed for email: {}, error: {}", request.getEmail(), e.getMessage());
             ErrorResponse error = new ErrorResponse();
             error.setError(e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);

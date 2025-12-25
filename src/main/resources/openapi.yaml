@@ -16,6 +16,8 @@ tags:
     description: Test endpoints for API verification
   - name: Authentication
     description: User authentication and registration endpoints
+  - name: Institutions
+    description: Financial institution management endpoints
 
 paths:
   /api/hello:
@@ -181,6 +183,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/institutions:
+    post:
+      tags:
+        - Institutions
+      summary: Create a new financial institution
+      description: Creates a new institution with a starting balance for the authenticated user
+      operationId: createInstitution
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstitutionRequest'
+      responses:
+        '201':
+          description: Institution created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    get:
+      tags:
+        - Institutions
+      summary: Get all institutions for the authenticated user
+      description: Returns a list of all financial institutions for the logged-in user
+      operationId: getInstitutions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of institutions to return (default 50, max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: lastEvaluatedKey
+          in: query
+          description: Pagination token from previous response to get next page
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved institutions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  institutions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InstitutionResponse'
+                  nextToken:
+                    type: string
+                    description: Token to retrieve the next page of results (null if no more results)
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -298,3 +381,49 @@ components:
         error:
           type: string
           example: "Incorrect username or password"
+    
+    CreateInstitutionRequest:
+      type: object
+      required:
+        - institutionName
+        - startingBalance
+      properties:
+        institutionName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Chase Bank"
+          description: Name of the financial institution
+        startingBalance:
+          type: number
+          format: double
+          example: 324.50
+          description: Starting balance in the account
+    
+    InstitutionResponse:
+      type: object
+      properties:
+        institutionId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+          description: Unique identifier for the institution
+        institutionName:
+          type: string
+          example: "Chase Bank"
+          description: Name of the financial institution
+        startingBalance:
+          type: number
+          format: double
+          example: 324.50
+          description: Starting balance in the account
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-12-24T12:00:00Z"
+          description: Timestamp when the institution was created
+        userId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: Cognito user ID (sub claim) of the user who owns this institution
