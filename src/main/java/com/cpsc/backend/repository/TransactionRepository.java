@@ -12,6 +12,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -92,7 +93,7 @@ public class TransactionRepository {
         
         Key key = Key.builder()
                 .partitionValue(institutionId)
-                .sortValue(createdAt.toString())
+                .sortValue(AttributeValue.builder().n(createdAt.toString()).build())
                 .build();
         
         transactionTable.deleteItem(key);
