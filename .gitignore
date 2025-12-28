@@ -27,6 +27,12 @@ application-local.properties
 application-*.properties
 !application.properties
 
+# Local environment variables (DO NOT COMMIT)
+.env.local
+.env
+run-local.ps1
+load-env.ps1
+
 # IDE - IntelliJ IDEA
 .idea/
 *.iws

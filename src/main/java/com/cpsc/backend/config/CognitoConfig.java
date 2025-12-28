@@ -23,4 +23,12 @@ public class CognitoConfig {
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();
     }
+    
+    public String getUserPoolId() {
+        return secretsManagerConfig.getCognitoUserPoolId();
+    }
+    
+    public String getRegion() {
+        return secretsManagerConfig.getCognitoRegion();
+    }
 }
