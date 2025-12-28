@@ -29,7 +29,7 @@ A Spring Boot REST API with AWS Cognito authentication, built with Gradle and Op
 - **DynamoDB Integration**: Financial institution and transaction management with environment-specific tables
 - **Transaction Management**: Create and track deposits/withdrawals with tags and descriptions
 - **Postman Collection**: Pre-configured API testing collection
-- **Comprehensive Testing**: 182 tests with 91% instruction coverage and 84% branch coverage
+- **Comprehensive Testing**: 206 tests with 90% instruction coverage and 85% branch coverage
 
 ## Environment Configuration
 
@@ -208,6 +208,7 @@ The collection includes:
 ### Transactions (Protected - Requires JWT)
 - `POST /api/institutions/{institutionId}/transactions` - Create deposit or withdrawal
 - `GET /api/institutions/{institutionId}/transactions` - Get all transactions (sorted newest first)
+- `DELETE /api/institutions/{institutionId}/transactions/{transactionId}` - Delete a transaction
 
 ### Transaction Request Example
 ```json
@@ -234,9 +235,9 @@ The collection includes:
 
 The project maintains high test coverage with comprehensive unit tests:
 
-- **Total Tests**: 182 (all passing)
-- **Instruction Coverage**: 91%
-- **Branch Coverage**: 84%
+- **Total Tests**: 206 (all passing)
+- **Instruction Coverage**: 90%
+- **Branch Coverage**: 85%
 
 ### Running Tests
 ```bash
@@ -250,8 +251,8 @@ The project maintains high test coverage with comprehensive unit tests:
 View report at: `build/reports/jacoco/test/html/index.html`
 
 ### Test Structure
-- **Repository Tests**: 28 tests (InstitutionRepository, TransactionRepository)
-- **Service Tests**: 84 tests (CognitoService, InstitutionService, TransactionService)
-- **Controller Tests**: 15 tests (AuthController, InstitutionController, TransactionController, TestController)
-- **Security Tests**: 27 tests (JwtValidator)
+- **Repository Tests**: 22 tests (InstitutionRepository, TransactionRepository)
+- **Service Tests**: 92 tests (CognitoService, InstitutionService, TransactionService)
+- **Controller Tests**: 16 tests (AuthController, InstitutionController, TransactionController, TestController)
+- **Security Tests**: 35 tests (JwtValidator)
 - **Exception Handler Tests**: 28 tests (GlobalExceptionHandler)
