@@ -142,7 +142,7 @@ class InstitutionServiceTest {
         institution.setUserId(UUID.randomUUID().toString());
         institution.setInstitutionName("Mapped Bank");
         institution.setStartingBalance(500.0);
-        institution.setCreatedAt(Instant.parse("2024-01-01T00:00:00Z"));
+        institution.setCreatedAt(1704067200L); // 2024-01-01T00:00:00Z in epoch seconds
 
         when(institutionRepository.findAllByUserId("user-123")).thenReturn(List.of(institution));
 
@@ -153,7 +153,7 @@ class InstitutionServiceTest {
         assertThat(mapped.getInstitutionName()).isEqualTo("Mapped Bank");
         assertThat(mapped.getStartingBalance()).isEqualTo(500.0);
         assertThat(mapped.getUserId()).isEqualTo(UUID.fromString(institution.getUserId()));
-        assertThat(mapped.getCreatedAt()).isEqualTo(OffsetDateTime.ofInstant(institution.getCreatedAt(), ZoneOffset.UTC));
+        assertThat(mapped.getCreatedAt()).isEqualTo(institution.getCreatedAt());
         verify(institutionRepository).findAllByUserId("user-123");
     }
 
@@ -178,7 +178,7 @@ class InstitutionServiceTest {
         institution.setUserId(UUID.randomUUID().toString());
         institution.setInstitutionName("Paged Bank");
         institution.setStartingBalance(250.0);
-        institution.setCreatedAt(Instant.now());
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
 
         Map<String, AttributeValue> lastEvaluatedKey = Map.of(
                 "institutionId", AttributeValue.builder().s("last-id").build()

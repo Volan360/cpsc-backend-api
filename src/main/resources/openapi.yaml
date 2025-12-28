@@ -418,10 +418,10 @@ components:
           example: 324.50
           description: Starting balance in the account
         createdAt:
-          type: string
-          format: date-time
-          example: "2025-12-24T12:00:00Z"
-          description: Timestamp when the institution was created
+          type: integer
+          format: int64
+          example: 1735041600
+          description: UNIX timestamp (seconds since epoch) when the institution was created
         userId:
           type: string
           format: uuid

@@ -58,7 +58,7 @@ class InstitutionControllerTest {
         createResponse.setInstitutionName("Test Bank");
         createResponse.setStartingBalance(1000.0);
         createResponse.setUserId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"));
-        createResponse.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        createResponse.setCreatedAt(System.currentTimeMillis() / 1000L);
 
         getResponse = new GetInstitutions200Response();
         getResponse.setInstitutions(Collections.emptyList());

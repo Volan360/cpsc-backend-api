@@ -4,8 +4,6 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
-import java.time.Instant;
-
 @DynamoDbBean
 public class Institution {
 
@@ -13,7 +11,7 @@ public class Institution {
     private String institutionId;
     private String institutionName;
     private Double startingBalance;
-    private Instant createdAt;
+    private Long createdAt;
 
     public Institution() {
     }
@@ -52,11 +50,11 @@ public class Institution {
         this.startingBalance = startingBalance;
     }
 
-    public Instant getCreatedAt() {
+    public Long getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(Instant createdAt) {
+    public void setCreatedAt(Long createdAt) {
         this.createdAt = createdAt;
     }
 }

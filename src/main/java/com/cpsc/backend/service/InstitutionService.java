@@ -15,8 +15,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -54,7 +52,7 @@ public class InstitutionService {
             institution.setInstitutionId(UUID.randomUUID().toString());
             institution.setInstitutionName(request.getInstitutionName().trim());
             institution.setStartingBalance(request.getStartingBalance().doubleValue());
-            institution.setCreatedAt(Instant.now());
+            institution.setCreatedAt(Instant.now().getEpochSecond());
 
             logger.info("Creating institution '{}' for user {} with starting balance {}", 
                 institution.getInstitutionName(), userId, institution.getStartingBalance());
@@ -185,7 +183,7 @@ public class InstitutionService {
             response.setInstitutionName(institution.getInstitutionName());
             response.setStartingBalance(institution.getStartingBalance());
             response.setUserId(UUID.fromString(institution.getUserId()));
-            response.setCreatedAt(OffsetDateTime.ofInstant(institution.getCreatedAt(), ZoneOffset.UTC));
+            response.setCreatedAt(institution.getCreatedAt());
             return response;
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format in institution data: institutionId={}, userId={}", 
