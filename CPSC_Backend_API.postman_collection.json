@@ -248,6 +248,32 @@
             "description": "Get financial institutions for the authenticated user with pagination support. Use the nextToken from response to get next page."
           },
           "response": []
+        },
+        {
+          "name": "Delete Institution",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000"
+              ]
+            },
+            "description": "Delete a specific institution for the authenticated user. Replace the UUID in the path with the actual institutionId from Get Institutions response."
+          },
+          "response": []
         }
       ]
     },

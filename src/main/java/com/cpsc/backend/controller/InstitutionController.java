@@ -14,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 public class InstitutionController implements InstitutionsApi {
@@ -45,6 +46,17 @@ public class InstitutionController implements InstitutionsApi {
         GetInstitutions200Response response = institutionService.getUserInstitutionsPaginated(userId, limit, lastEvaluatedKey);
         
         return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteInstitution(UUID institutionId) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to delete institution {} for user {}", institutionId, userId);
+        
+        institutionService.deleteInstitution(userId, institutionId.toString());
+        
+        return ResponseEntity.noContent().build();
     }
 
     private String getAuthenticatedUserId() {

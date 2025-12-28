@@ -396,4 +396,69 @@ class InstitutionServiceTest {
                 .cause()
                 .hasMessage("Invalid institution data format");
     }
+
+    @Test
+    void deleteInstitution_Success() {
+        Institution institution = new Institution();
+        institution.setInstitutionId("inst-123");
+        institution.setUserId("user-123");
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+
+        when(institutionRepository.findByUserIdAndInstitutionId("user-123", "inst-123")).thenReturn(institution);
+        doNothing().when(institutionRepository).delete("user-123", "inst-123");
+
+        institutionService.deleteInstitution("user-123", "inst-123");
+
+        verify(institutionRepository).findByUserIdAndInstitutionId("user-123", "inst-123");
+        verify(institutionRepository).delete("user-123", "inst-123");
+    }
+
+    @Test
+    void deleteInstitution_NullUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.deleteInstitution(null, "inst-123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteInstitution_EmptyUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.deleteInstitution("", "inst-123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteInstitution_NullInstitutionId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.deleteInstitution("user-123", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Institution ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteInstitution_EmptyInstitutionId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.deleteInstitution("user-123", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Institution ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteInstitution_DynamoDbException_ThrowsException() {
+        when(institutionRepository.findByUserIdAndInstitutionId("user-123", "inst-123"))
+                .thenThrow(DynamoDbException.builder().message("DynamoDB error").build());
+
+        assertThatThrownBy(() -> institutionService.deleteInstitution("user-123", "inst-123"))
+                .isInstanceOf(DynamoDbException.class);
+    }
+
+    @Test
+    void deleteInstitution_GenericException_ThrowsRuntimeException() {
+        when(institutionRepository.findByUserIdAndInstitutionId("user-123", "inst-123"))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        assertThatThrownBy(() -> institutionService.deleteInstitution("user-123", "inst-123"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to delete institution");
+    }
 }

@@ -25,7 +25,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,5 +116,20 @@ class InstitutionControllerTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
         }
+    }
+
+    @Test
+    void deleteInstitution_Success() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getName()).thenReturn("550e8400-e29b-41d4-a716-446655440000");
+            doNothing().when(institutionService).deleteInstitution("550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001");
+
+            ResponseEntity<Void> response = institutionController.deleteInstitution(UUID.fromString("550e8400-e29b-41d4-a716-446655440001"));
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+            assertThat(response.getBody()).isNull();
+            verify(institutionService).deleteInstitution("550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001");        }
     }
 }

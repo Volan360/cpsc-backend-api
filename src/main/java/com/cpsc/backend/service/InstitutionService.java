@@ -145,6 +145,40 @@ public class InstitutionService {
             throw new RuntimeException("Failed to fetch institutions", e);
         }
     }
+
+    /**
+     * Delete an institution for a user
+     */
+    public void deleteInstitution(String userId, String institutionId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        
+        if (institutionId == null || institutionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Institution ID cannot be null or empty");
+        }
+        
+        try {
+            logger.info("Deleting institution {} for user {}", institutionId, userId);
+            
+            // First verify the institution exists and belongs to the user
+            institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+            
+            // If no exception was thrown, the institution exists and we can delete it
+            institutionRepository.delete(userId, institutionId);
+            
+            logger.info("Successfully deleted institution {} for user {}", institutionId, userId);
+            
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error while deleting institution {} for user {}: {}", 
+                institutionId, userId, e.getMessage(), e);
+            throw e; // Re-throw to be handled by GlobalExceptionHandler
+        } catch (Exception e) {
+            logger.error("Unexpected error while deleting institution {} for user {}: {}", 
+                institutionId, userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete institution", e);
+        }
+    }
     
     private void validateInstitutionRequest(CreateInstitutionRequest request) {
         if (request.getInstitutionName() == null || request.getInstitutionName().trim().isEmpty()) {
