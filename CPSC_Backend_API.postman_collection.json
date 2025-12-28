@@ -278,6 +278,101 @@
       ]
     },
     {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Create Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DEPOSIT\",\n  \"amount\": 1000.50,\n  \"tags\": [\"salary\", \"monthly\"],\n  \"description\": \"January salary deposit\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "transactions"
+              ]
+            },
+            "description": "Create a new transaction (deposit or withdrawal) for a specific institution. Replace the UUID in the path with the actual institutionId from Get Institutions response. Type can be DEPOSIT or WITHDRAWAL."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Institution Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "transactions"
+              ]
+            },
+            "description": "Retrieve all transactions for a specific institution, sorted by creation date (newest first). Replace the UUID in the path with the actual institutionId from Get Institutions response."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000/transactions/550e8400-e29b-41d4-a716-446655440002",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "transactions",
+                "550e8400-e29b-41d4-a716-446655440002"
+              ]
+            },
+            "description": "Delete a specific transaction for the authenticated user. Replace the institution UUID and transaction UUID in the path with actual IDs from Get Institution Transactions response."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Public Endpoints",
       "item": [
         {
