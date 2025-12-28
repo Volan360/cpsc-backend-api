@@ -2,6 +2,7 @@ package com.cpsc.backend.service;
 
 import com.cpsc.backend.entity.Institution;
 import com.cpsc.backend.entity.Transaction;
+import com.cpsc.backend.exception.InstitutionNotFoundException;
 import com.cpsc.backend.exception.InvalidTransactionDataException;
 import com.cpsc.backend.model.CreateTransactionRequest;
 import com.cpsc.backend.model.TransactionResponse;
@@ -290,5 +291,121 @@ class TransactionServiceTest {
         assertThatThrownBy(() -> transactionService.getInstitutionTransactions(USER_ID, INSTITUTION_ID))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Failed to fetch transactions");
+    }
+
+    // ===== DELETE TRANSACTION TESTS =====
+
+    @Test
+    void deleteTransaction_Success() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+        Long createdAt = 1735363200L;
+        
+        Transaction transaction = new Transaction();
+        transaction.setInstitutionId(INSTITUTION_ID);
+        transaction.setUserId(USER_ID);
+        transaction.setTransactionId(transactionId.toString());
+        transaction.setCreatedAt(createdAt);
+        transaction.setType("DEPOSIT");
+        transaction.setAmount(100.0);
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of(transaction));
+
+        transactionService.deleteTransaction(USER_ID, institutionId, transactionId);
+
+        verify(transactionRepository).delete(INSTITUTION_ID, createdAt);
+    }
+
+    @Test
+    void deleteTransaction_TransactionNotFound_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(USER_ID, institutionId, transactionId))
+                .isInstanceOf(InstitutionNotFoundException.class)
+                .hasMessageContaining("Transaction not found");
+    }
+
+    @Test
+    void deleteTransaction_UserDoesNotOwnTransaction_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+        Long createdAt = 1735363200L;
+        
+        Transaction transaction = new Transaction();
+        transaction.setInstitutionId(INSTITUTION_ID);
+        transaction.setUserId("different-user");
+        transaction.setTransactionId(transactionId.toString());
+        transaction.setCreatedAt(createdAt);
+        transaction.setType("DEPOSIT");
+        transaction.setAmount(100.0);
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of(transaction));
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(USER_ID, institutionId, transactionId))
+                .isInstanceOf(InstitutionNotFoundException.class)
+                .hasMessageContaining("Transaction not found");
+    }
+
+    @Test
+    void deleteTransaction_InstitutionNotFound_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenThrow(new InstitutionNotFoundException("Institution not found"));
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(USER_ID, institutionId, transactionId))
+                .isInstanceOf(InstitutionNotFoundException.class)
+                .hasMessage("Institution not found");
+    }
+
+    @Test
+    void deleteTransaction_NullUserId_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(null, institutionId, transactionId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteTransaction_EmptyUserId_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction("", institutionId, transactionId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void deleteTransaction_NullInstitutionId_ThrowsException() {
+        UUID transactionId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(USER_ID, null, transactionId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Institution ID cannot be null");
+    }
+
+    @Test
+    void deleteTransaction_NullTransactionId_ThrowsException() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+
+        assertThatThrownBy(() -> transactionService.deleteTransaction(USER_ID, institutionId, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Transaction ID cannot be null");
     }
 }

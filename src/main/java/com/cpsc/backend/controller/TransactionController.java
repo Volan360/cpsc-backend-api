@@ -47,6 +47,18 @@ public class TransactionController implements TransactionsApi {
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    public ResponseEntity<Void> deleteTransaction(UUID institutionId, UUID transactionId) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to delete transaction {} for institution {} from user {}", 
+            transactionId, institutionId, userId);
+        
+        transactionService.deleteTransaction(userId, institutionId, transactionId);
+        
+        return ResponseEntity.noContent().build();
+    }
+
     private String getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         

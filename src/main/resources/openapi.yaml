@@ -385,6 +385,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  
+  /api/institutions/{institutionId}/transactions/{transactionId}:
+    delete:
+      tags:
+        - Transactions
+      summary: Delete a transaction
+      description: Deletes a specific transaction for the authenticated user
+      operationId: deleteTransaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: institutionId
+          in: path
+          description: Unique identifier of the institution
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: transactionId
+          in: path
+          description: Unique identifier of the transaction to delete
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Transaction deleted successfully
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction or institution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:

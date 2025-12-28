@@ -1,6 +1,7 @@
 package com.cpsc.backend.service;
 
 import com.cpsc.backend.entity.Transaction;
+import com.cpsc.backend.exception.InstitutionNotFoundException;
 import com.cpsc.backend.exception.InvalidTransactionDataException;
 import com.cpsc.backend.model.CreateTransactionRequest;
 import com.cpsc.backend.model.TransactionResponse;
@@ -108,6 +109,57 @@ public class TransactionService {
             logger.error("Unexpected error while fetching transactions for institution {}: {}", 
                 institutionId, e.getMessage(), e);
             throw new RuntimeException("Failed to fetch transactions", e);
+        }
+    }
+
+    public void deleteTransaction(String userId, UUID institutionId, UUID transactionId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        if (institutionId == null) {
+            throw new IllegalArgumentException("Institution ID cannot be null");
+        }
+        if (transactionId == null) {
+            throw new IllegalArgumentException("Transaction ID cannot be null");
+        }
+        
+        String institutionIdStr = institutionId.toString();
+        
+        // Validate the institution exists and belongs to the user
+        institutionRepository.findByUserIdAndInstitutionId(userId, institutionIdStr);
+        
+        try {
+            logger.debug("Fetching transaction {} for institution {} to verify ownership", 
+                transactionId, institutionIdStr);
+            
+            // Get all transactions for this institution to find the one with matching transactionId
+            List<Transaction> transactions = transactionRepository.findAllByInstitutionId(institutionIdStr);
+            
+            Transaction transactionToDelete = transactions.stream()
+                    .filter(t -> transactionId.toString().equals(t.getTransactionId()))
+                    .findFirst()
+                    .orElseThrow(() -> new InstitutionNotFoundException(
+                        "Transaction not found with ID: " + transactionId));
+            
+            // Verify the transaction belongs to the user
+            if (!userId.equals(transactionToDelete.getUserId())) {
+                throw new InstitutionNotFoundException("Transaction not found with ID: " + transactionId);
+            }
+            
+            logger.info("Deleting transaction {} for institution {}", transactionId, institutionIdStr);
+            
+            transactionRepository.delete(institutionIdStr, transactionToDelete.getCreatedAt());
+            
+        } catch (InstitutionNotFoundException e) {
+            throw e;
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error while deleting transaction {}: {}", 
+                transactionId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while deleting transaction {}: {}", 
+                transactionId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete transaction", e);
         }
     }
 

@@ -76,6 +76,122 @@ class JwtValidatorTest {
     }
 
     @Test
+    void validateToken_WhitespaceToken_ReturnsNull() {
+        DecodedJWT result = jwtValidator.validateToken("   ");
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithInvalidSignature_ReturnsNull() throws Exception {
+        // Create a token with one key pair
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+
+        Algorithm algorithm = Algorithm.RSA256(publicKey, privateKey);
+        
+        String token = JWT.create()
+                .withIssuer("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test")
+                .withSubject("user-123")
+                .withKeyId("test-key-id")
+                .withExpiresAt(Date.from(Instant.now().plusSeconds(3600)))
+                .sign(algorithm);
+
+        // The validator will fail to verify because it fetches keys from Cognito's JWKS
+        // which won't match our locally generated key
+        DecodedJWT result = jwtValidator.validateToken(token);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithWrongIssuer_ReturnsNull() throws Exception {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+
+        Algorithm algorithm = Algorithm.RSA256(publicKey, privateKey);
+        
+        String token = JWT.create()
+                .withIssuer("https://wrong-issuer.example.com")
+                .withSubject("user-123")
+                .withKeyId("test-key-id")
+                .withExpiresAt(Date.from(Instant.now().plusSeconds(3600)))
+                .sign(algorithm);
+
+        DecodedJWT result = jwtValidator.validateToken(token);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithMissingKeyId_ReturnsNull() throws Exception {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+
+        Algorithm algorithm = Algorithm.RSA256(publicKey, privateKey);
+        
+        // Create token without keyId (kid) in header
+        String token = JWT.create()
+                .withIssuer("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test")
+                .withSubject("user-123")
+                .withExpiresAt(Date.from(Instant.now().plusSeconds(3600)))
+                .sign(algorithm);
+
+        // Will fail when trying to get JWK with null kid
+        DecodedJWT result = jwtValidator.validateToken(token);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithSpecialCharacters_ReturnsNull() {
+        String tokenWithSpecialChars = "eyJ!@#$%^&*()+=<>?/\\|{}[]`~.eyJ!@#$%^&*()+=<>?/\\|{}[]`~.signature!@#$%^&*()";
+        
+        DecodedJWT result = jwtValidator.validateToken(tokenWithSpecialChars);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_VeryLongToken_ReturnsNull() {
+        // Create a very long invalid token
+        String longToken = "a".repeat(10000);
+        
+        DecodedJWT result = jwtValidator.validateToken(longToken);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithOnlyTwoParts_ReturnsNull() {
+        // JWT should have 3 parts separated by dots
+        String incompletToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9";
+        
+        DecodedJWT result = jwtValidator.validateToken(incompletToken);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void validateToken_TokenWithInvalidBase64_ReturnsNull() {
+        // Invalid base64 encoding
+        String invalidBase64Token = "not-valid-base64.not-valid-base64.not-valid-base64";
+        
+        DecodedJWT result = jwtValidator.validateToken(invalidBase64Token);
+        
+        assertThat(result).isNull();
+    }
+
+    @Test
     void validateToken_ExpiredToken_ReturnsNull() throws Exception {
         // Create an expired token
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");

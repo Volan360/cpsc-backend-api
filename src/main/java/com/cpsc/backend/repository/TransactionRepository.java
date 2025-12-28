@@ -77,6 +77,27 @@ public class TransactionRepository {
         return transactions;
     }
 
+    /**
+     * Delete a transaction by institutionId and createdAt
+     */
+    public void delete(String institutionId, Long createdAt) {
+        if (institutionId == null || institutionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Institution ID cannot be null or empty");
+        }
+        if (createdAt == null) {
+            throw new IllegalArgumentException("CreatedAt cannot be null");
+        }
+        
+        logger.debug("Deleting transaction: institutionId={}, createdAt={}", institutionId, createdAt);
+        
+        Key key = Key.builder()
+                .partitionValue(institutionId)
+                .sortValue(createdAt.toString())
+                .build();
+        
+        transactionTable.deleteItem(key);
+    }
+
     private void validateTransaction(Transaction transaction) {
         if (transaction.getInstitutionId() == null || transaction.getInstitutionId().trim().isEmpty()) {
             throw new InvalidTransactionDataException("Institution ID cannot be null or empty");
