@@ -264,6 +264,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/institutions/{institutionId}:
+    delete:
+      tags:
+        - Institutions
+      summary: Delete a financial institution
+      description: Deletes a specific institution for the authenticated user
+      operationId: deleteInstitution
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: institutionId
+          in: path
+          description: Unique identifier of the institution to delete
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Institution deleted successfully
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Institution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
