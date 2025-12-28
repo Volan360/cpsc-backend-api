@@ -14,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -27,8 +28,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -198,5 +201,199 @@ class InstitutionServiceTest {
         assertThat(response.getInstitutions()).hasSize(1);
         assertThat(response.getNextToken()).isEqualTo(token);
         verify(institutionRepository).findAllByUserIdPaginated("user-123", 10, lastEvaluatedKey);
+    }
+
+    @Test
+    void createInstitution_NullUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.createInstitution(null, validRequest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void createInstitution_EmptyUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.createInstitution("", validRequest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void createInstitution_DynamoDbException_ThrowsException() {
+        doThrow(DynamoDbException.builder().message("DynamoDB error").build())
+                .when(institutionRepository).save(any(Institution.class));
+
+        assertThatThrownBy(() -> institutionService.createInstitution("user-123", validRequest))
+                .isInstanceOf(DynamoDbException.class);
+    }
+
+    @Test
+    void createInstitution_GenericException_ThrowsRuntimeException() {
+        doThrow(new RuntimeException("Unexpected error"))
+                .when(institutionRepository).save(any(Institution.class));
+
+        assertThatThrownBy(() -> institutionService.createInstitution("user-123", validRequest))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to create institution");
+    }
+
+    @Test
+    void getUserInstitutions_NullUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.getUserInstitutions(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void getUserInstitutions_EmptyUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.getUserInstitutions(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void getUserInstitutions_DynamoDbException_ThrowsException() {
+        when(institutionRepository.findAllByUserId("user-123"))
+                .thenThrow(DynamoDbException.builder().message("DynamoDB error").build());
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutions("user-123"))
+                .isInstanceOf(DynamoDbException.class);
+    }
+
+    @Test
+    void getUserInstitutions_GenericException_ThrowsRuntimeException() {
+        when(institutionRepository.findAllByUserId("user-123"))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutions("user-123"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to fetch institutions");
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_NullUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.getUserInstitutionsPaginated(null, 10, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_EmptyUserId_ThrowsException() {
+        assertThatThrownBy(() -> institutionService.getUserInstitutionsPaginated("", 10, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_LimitExceedsMaximum_UsesMaxLimit() {
+        InstitutionRepository.PaginatedResult<Institution> result =
+                new InstitutionRepository.PaginatedResult<>(Collections.emptyList(), null);
+
+        when(institutionRepository.findAllByUserIdPaginated("user-123", 100, null)).thenReturn(result);
+
+        GetInstitutions200Response response = institutionService.getUserInstitutionsPaginated("user-123", 200, null);
+
+        verify(institutionRepository).findAllByUserIdPaginated("user-123", 100, null);
+        assertThat(response.getInstitutions()).isEmpty();
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_NegativeLimit_UsesDefault() {
+        InstitutionRepository.PaginatedResult<Institution> result =
+                new InstitutionRepository.PaginatedResult<>(Collections.emptyList(), null);
+
+        when(institutionRepository.findAllByUserIdPaginated("user-123", 50, null)).thenReturn(result);
+
+        GetInstitutions200Response response = institutionService.getUserInstitutionsPaginated("user-123", -1, null);
+
+        verify(institutionRepository).findAllByUserIdPaginated("user-123", 50, null);
+        assertThat(response.getInstitutions()).isEmpty();
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_DynamoDbException_ThrowsException() {
+        when(institutionRepository.findAllByUserIdPaginated(eq("user-123"), anyInt(), any()))
+                .thenThrow(DynamoDbException.builder().message("DynamoDB error").build());
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutionsPaginated("user-123", 10, null))
+                .isInstanceOf(DynamoDbException.class);
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_GenericException_ThrowsRuntimeException() {
+        when(institutionRepository.findAllByUserIdPaginated(eq("user-123"), anyInt(), any()))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutionsPaginated("user-123", 10, null))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to fetch institutions");
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_InvalidToken_ThrowsRuntimeException() {
+        String invalidToken = "not-a-valid-base64-token!!!";
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutionsPaginated("user-123", 10, invalidToken))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void getUserInstitutionsPaginated_EmptyList_ReturnsEmptyResponse() {
+        InstitutionRepository.PaginatedResult<Institution> result =
+                new InstitutionRepository.PaginatedResult<>(Collections.emptyList(), null);
+
+        when(institutionRepository.findAllByUserIdPaginated("user-123", 50, null)).thenReturn(result);
+
+        GetInstitutions200Response response = institutionService.getUserInstitutionsPaginated("user-123", null, null);
+
+        assertThat(response.getInstitutions()).isEmpty();
+        assertThat(response.getNextToken()).isNull();
+    }
+
+    @Test
+    void getUserInstitutions_EmptyList_ReturnsEmptyList() {
+        when(institutionRepository.findAllByUserId("user-123")).thenReturn(Collections.emptyList());
+
+        List<InstitutionResponse> responses = institutionService.getUserInstitutions("user-123");
+
+        assertThat(responses).isEmpty();
+        verify(institutionRepository).findAllByUserId("user-123");
+    }
+
+    @Test
+    void mapToResponse_InvalidInstitutionIdUUID_ThrowsRuntimeException() {
+        Institution institution = new Institution();
+        institution.setInstitutionId("invalid-uuid");
+        institution.setUserId(UUID.randomUUID().toString());
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+
+        when(institutionRepository.findAllByUserId("user-123")).thenReturn(List.of(institution));
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutions("user-123"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to fetch institutions")
+                .hasCauseInstanceOf(RuntimeException.class)
+                .cause()
+                .hasMessage("Invalid institution data format");
+    }
+
+    @Test
+    void mapToResponse_InvalidUserIdUUID_ThrowsRuntimeException() {
+        Institution institution = new Institution();
+        institution.setInstitutionId(UUID.randomUUID().toString());
+        institution.setUserId("not-a-valid-uuid");
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+
+        when(institutionRepository.findAllByUserId("user-123")).thenReturn(List.of(institution));
+
+        assertThatThrownBy(() -> institutionService.getUserInstitutions("user-123"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to fetch institutions")
+                .hasCauseInstanceOf(RuntimeException.class)
+                .cause()
+                .hasMessage("Invalid institution data format");
     }
 }
