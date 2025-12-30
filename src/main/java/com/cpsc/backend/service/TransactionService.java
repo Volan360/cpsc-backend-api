@@ -41,7 +41,8 @@ public class TransactionService {
         }
         
         // Validate the institution exists and belongs to the user
-        institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+        com.cpsc.backend.entity.Institution institution = 
+            institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
         
         // Validate transaction data
         validateTransactionRequest(request);
@@ -61,6 +62,9 @@ public class TransactionService {
                 institutionId, request.getType(), request.getAmount());
             
             transactionRepository.save(transaction);
+            
+            // Update institution's current balance
+            updateInstitutionBalance(institution, request.getType().getValue(), request.getAmount(), false);
             
             logger.info("Successfully created transaction {} for institution {}", 
                 transaction.getTransactionId(), institutionId);
@@ -148,6 +152,14 @@ public class TransactionService {
             
             logger.info("Deleting transaction {} for institution {}", transactionId, institutionIdStr);
             
+            // Get institution to update balance
+            com.cpsc.backend.entity.Institution institution = 
+                institutionRepository.findByUserIdAndInstitutionId(userId, institutionIdStr);
+            
+            // Update institution's current balance (reverse the transaction)
+            updateInstitutionBalance(institution, transactionToDelete.getType(), 
+                transactionToDelete.getAmount(), true);
+            
             transactionRepository.delete(institutionIdStr, transactionToDelete.getCreatedAt());
             
         } catch (InstitutionNotFoundException e) {
@@ -163,6 +175,38 @@ public class TransactionService {
         }
     }
 
+    /**
+     * Update institution's current balance based on transaction type
+     * @param institution The institution to update
+     * @param transactionType DEPOSIT or WITHDRAWAL
+     * @param amount The transaction amount
+     * @param isReverse If true, reverse the transaction (for deletion)
+     */
+    private void updateInstitutionBalance(com.cpsc.backend.entity.Institution institution, 
+                                         String transactionType, Double amount, boolean isReverse) {
+        Double currentBalance = institution.getCurrentBalance();
+        if (currentBalance == null) {
+            currentBalance = institution.getStartingBalance();
+        }
+        
+        boolean isWithdrawal = "WITHDRAWAL".equalsIgnoreCase(transactionType);
+        
+        // For normal transactions: WITHDRAWAL decreases, DEPOSIT increases
+        // For reverse (deletion): opposite behavior
+        if (isReverse) {
+            isWithdrawal = !isWithdrawal;
+        }
+        
+        Double newBalance = isWithdrawal ? currentBalance - amount : currentBalance + amount;
+        
+        institution.setCurrentBalance(newBalance);
+        
+        logger.info("Updating institution {} balance from {} to {} (type={}, amount={}, reverse={})",
+            institution.getInstitutionId(), currentBalance, newBalance, transactionType, amount, isReverse);
+        
+        institutionRepository.save(institution);
+    }
+    
     private void validateTransactionRequest(CreateTransactionRequest request) {
         if (request.getType() == null) {
             throw new InvalidTransactionDataException("Transaction type cannot be null");

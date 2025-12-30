@@ -52,6 +52,7 @@ public class InstitutionService {
             institution.setInstitutionId(UUID.randomUUID().toString());
             institution.setInstitutionName(request.getInstitutionName().trim());
             institution.setStartingBalance(request.getStartingBalance().doubleValue());
+            institution.setCurrentBalance(request.getStartingBalance().doubleValue());
             institution.setCreatedAt(Instant.now().getEpochSecond());
 
             logger.info("Creating institution '{}' for user {} with starting balance {}", 
@@ -216,6 +217,7 @@ public class InstitutionService {
             response.setInstitutionId(UUID.fromString(institution.getInstitutionId()));
             response.setInstitutionName(institution.getInstitutionName());
             response.setStartingBalance(institution.getStartingBalance());
+            response.setCurrentBalance(institution.getCurrentBalance());
             response.setUserId(UUID.fromString(institution.getUserId()));
             response.setCreatedAt(institution.getCreatedAt());
             return response;

@@ -63,7 +63,19 @@ class InstitutionServiceTest {
         assertThat(response.getInstitutionId()).isNotNull();
         assertThat(response.getInstitutionName()).isEqualTo("Test Bank");
         assertThat(response.getStartingBalance()).isEqualTo(1000.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1000.0); // currentBalance should equal startingBalance
         verify(institutionRepository).save(any(Institution.class));
+    }
+
+    @Test
+    void createInstitution_CurrentBalanceEqualsStartingBalance() {
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        validRequest.setStartingBalance(2500.75);
+        InstitutionResponse response = institutionService.createInstitution("3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28", validRequest);
+
+        assertThat(response.getCurrentBalance()).isEqualTo(2500.75);
+        assertThat(response.getCurrentBalance()).isEqualTo(response.getStartingBalance());
     }
 
     @Test
@@ -145,6 +157,7 @@ class InstitutionServiceTest {
         institution.setUserId(UUID.randomUUID().toString());
         institution.setInstitutionName("Mapped Bank");
         institution.setStartingBalance(500.0);
+        institution.setCurrentBalance(750.0);
         institution.setCreatedAt(1704067200L); // 2024-01-01T00:00:00Z in epoch seconds
 
         when(institutionRepository.findAllByUserId("user-123")).thenReturn(List.of(institution));
