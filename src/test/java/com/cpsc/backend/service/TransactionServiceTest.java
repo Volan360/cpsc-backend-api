@@ -58,6 +58,7 @@ class TransactionServiceTest {
         validInstitution.setInstitutionId(INSTITUTION_ID);
         validInstitution.setInstitutionName("Test Bank");
         validInstitution.setStartingBalance(1000.0);
+        validInstitution.setCurrentBalance(1000.0);
         validInstitution.setCreatedAt(System.currentTimeMillis() / 1000L);
     }
 
@@ -66,6 +67,7 @@ class TransactionServiceTest {
         when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
                 .thenReturn(validInstitution);
         doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
 
         TransactionResponse response = transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
 
@@ -77,6 +79,58 @@ class TransactionServiceTest {
         assertThat(response.getTags()).containsExactly("grocery", "food");
         assertThat(response.getDescription()).isEqualTo("Weekly groceries");
         verify(transactionRepository).save(any(Transaction.class));
+        verify(institutionRepository).save(validInstitution); // Should update institution balance
+    }
+
+    @Test
+    void createTransaction_DepositIncreasesBalance() {
+        validInstitution.setCurrentBalance(1000.0);
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        validRequest.setType(CreateTransactionRequest.TypeEnum.DEPOSIT);
+        validRequest.setAmount(250.50);
+
+        transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
+
+        assertThat(validInstitution.getCurrentBalance()).isEqualTo(1250.50);
+        verify(institutionRepository).save(validInstitution);
+    }
+
+    @Test
+    void createTransaction_WithdrawalDecreasesBalance() {
+        validInstitution.setCurrentBalance(1000.0);
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        validRequest.setType(CreateTransactionRequest.TypeEnum.WITHDRAWAL);
+        validRequest.setAmount(350.75);
+
+        transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
+
+        assertThat(validInstitution.getCurrentBalance()).isEqualTo(649.25);
+        verify(institutionRepository).save(validInstitution);
+    }
+
+    @Test
+    void createTransaction_NullCurrentBalanceUsesStartingBalance() {
+        validInstitution.setStartingBalance(500.0);
+        validInstitution.setCurrentBalance(null);
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        validRequest.setType(CreateTransactionRequest.TypeEnum.DEPOSIT);
+        validRequest.setAmount(100.0);
+
+        transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
+
+        assertThat(validInstitution.getCurrentBalance()).isEqualTo(600.0);
     }
 
     @Test
@@ -85,6 +139,7 @@ class TransactionServiceTest {
         when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
                 .thenReturn(validInstitution);
         doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
 
         TransactionResponse response = transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
 
@@ -98,6 +153,7 @@ class TransactionServiceTest {
         when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
                 .thenReturn(validInstitution);
         doNothing().when(transactionRepository).save(any(Transaction.class));
+        doNothing().when(institutionRepository).save(any(Institution.class));
 
         TransactionResponse response = transactionService.createTransaction(USER_ID, INSTITUTION_ID, validRequest);
 
@@ -313,10 +369,68 @@ class TransactionServiceTest {
                 .thenReturn(validInstitution);
         when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
                 .thenReturn(List.of(transaction));
+        doNothing().when(institutionRepository).save(any(Institution.class));
 
         transactionService.deleteTransaction(USER_ID, institutionId, transactionId);
 
         verify(transactionRepository).delete(INSTITUTION_ID, createdAt);
+        verify(institutionRepository).save(validInstitution);
+    }
+
+    @Test
+    void deleteTransaction_DeletingDepositDecreasesBalance() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+        Long createdAt = 1735363200L;
+        
+        validInstitution.setCurrentBalance(1500.0);
+        
+        Transaction transaction = new Transaction();
+        transaction.setInstitutionId(INSTITUTION_ID);
+        transaction.setUserId(USER_ID);
+        transaction.setTransactionId(transactionId.toString());
+        transaction.setCreatedAt(createdAt);
+        transaction.setType("DEPOSIT");
+        transaction.setAmount(200.0);
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of(transaction));
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        transactionService.deleteTransaction(USER_ID, institutionId, transactionId);
+
+        assertThat(validInstitution.getCurrentBalance()).isEqualTo(1300.0);
+        verify(institutionRepository).save(validInstitution);
+    }
+
+    @Test
+    void deleteTransaction_DeletingWithdrawalIncreasesBalance() {
+        UUID institutionId = UUID.fromString(INSTITUTION_ID);
+        UUID transactionId = UUID.randomUUID();
+        Long createdAt = 1735363200L;
+        
+        validInstitution.setCurrentBalance(800.0);
+        
+        Transaction transaction = new Transaction();
+        transaction.setInstitutionId(INSTITUTION_ID);
+        transaction.setUserId(USER_ID);
+        transaction.setTransactionId(transactionId.toString());
+        transaction.setCreatedAt(createdAt);
+        transaction.setType("WITHDRAWAL");
+        transaction.setAmount(150.0);
+
+        when(institutionRepository.findByUserIdAndInstitutionId(USER_ID, INSTITUTION_ID))
+                .thenReturn(validInstitution);
+        when(transactionRepository.findAllByInstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of(transaction));
+        doNothing().when(institutionRepository).save(any(Institution.class));
+
+        transactionService.deleteTransaction(USER_ID, institutionId, transactionId);
+
+        assertThat(validInstitution.getCurrentBalance()).isEqualTo(950.0);
+        verify(institutionRepository).save(validInstitution);
     }
 
     @Test

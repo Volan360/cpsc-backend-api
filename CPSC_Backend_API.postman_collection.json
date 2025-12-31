@@ -250,6 +250,40 @@
           "response": []
         },
         {
+          "name": "Edit Institution",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institutionName\": \"Updated Bank Name\",\n  \"startingBalance\": 1500.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000"
+              ]
+            },
+            "description": "Edit an existing institution's name and/or starting balance. Both fields are optional. If startingBalance is changed, currentBalance is adjusted by the same difference. Replace the UUID in the path with the actual institutionId from Get Institutions response."
+          },
+          "response": []
+        },
+        {
           "name": "Delete Institution",
           "request": {
             "method": "DELETE",

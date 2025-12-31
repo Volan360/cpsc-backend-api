@@ -11,6 +11,7 @@ public class Institution {
     private String institutionId;
     private String institutionName;
     private Double startingBalance;
+    private Double currentBalance;
     private Long createdAt;
 
     public Institution() {
@@ -48,6 +49,14 @@ public class Institution {
 
     public void setStartingBalance(Double startingBalance) {
         this.startingBalance = startingBalance;
+    }
+
+    public Double getCurrentBalance() {
+        return currentBalance;
+    }
+
+    public void setCurrentBalance(Double currentBalance) {
+        this.currentBalance = currentBalance;
     }
 
     public Long getCreatedAt() {

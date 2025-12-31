@@ -49,6 +49,19 @@ public class InstitutionController implements InstitutionsApi {
     }
 
     @Override
+    public ResponseEntity<InstitutionResponse> editInstitution(UUID institutionId, 
+            com.cpsc.backend.model.EditInstitutionRequest editInstitutionRequest) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to edit institution {} for user {}", institutionId, userId);
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, 
+            institutionId.toString(), editInstitutionRequest);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @Override
     public ResponseEntity<Void> deleteInstitution(UUID institutionId) {
         String userId = getAuthenticatedUserId();
         
