@@ -267,6 +267,54 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /api/institutions/{institutionId}:
+    patch:
+      tags:
+        - Institutions
+      summary: Edit a financial institution
+      description: Updates the name and/or starting balance of an institution. When starting balance changes, current balance is adjusted by the same amount.
+      operationId: editInstitution
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: institutionId
+          in: path
+          description: Unique identifier of the institution to edit
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditInstitutionRequest'
+      responses:
+        '200':
+          description: Institution updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Institution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
     delete:
       tags:
         - Institutions
@@ -561,6 +609,21 @@ components:
           format: double
           example: 324.50
           description: Starting balance in the account
+    
+    EditInstitutionRequest:
+      type: object
+      properties:
+        institutionName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Wells Fargo"
+          description: Optional - New name for the financial institution
+        startingBalance:
+          type: number
+          format: double
+          example: 500.00
+          description: Optional - New starting balance. Current balance will be adjusted by the difference.
     
     InstitutionResponse:
       type: object

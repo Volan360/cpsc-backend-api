@@ -474,4 +474,251 @@ class InstitutionServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Failed to delete institution");
     }
+    
+    // ===== EDIT INSTITUTION TESTS =====
+    
+    @Test
+    void editInstitution_UpdateNameOnly_Success() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Old Bank Name");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setInstitutionName("New Bank Name");
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getInstitutionName()).isEqualTo("New Bank Name");
+        assertThat(response.getStartingBalance()).isEqualTo(1000.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1200.0); // Should not change
+        verify(institutionRepository).save(institution);
+    }
+    
+    @Test
+    void editInstitution_UpdateStartingBalanceOnly_AdjustsCurrentBalance() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1500.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setStartingBalance(800.0); // Decrease by 200
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getStartingBalance()).isEqualTo(800.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1300.0); // 1500 - 200
+        verify(institutionRepository).save(institution);
+    }
+    
+    @Test
+    void editInstitution_IncreaseStartingBalance_IncreasesCurrentBalance() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(500.0);
+        institution.setCurrentBalance(750.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setStartingBalance(700.0); // Increase by 200
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getStartingBalance()).isEqualTo(700.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(950.0); // 750 + 200
+        verify(institutionRepository).save(institution);
+    }
+    
+    @Test
+    void editInstitution_UpdateBoth_Success() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Old Name");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setInstitutionName("New Name");
+        request.setStartingBalance(950.0); // Decrease by 50
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getInstitutionName()).isEqualTo("New Name");
+        assertThat(response.getStartingBalance()).isEqualTo(950.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1150.0); // 1200 - 50
+        verify(institutionRepository).save(institution);
+    }
+    
+    @Test
+    void editInstitution_NullCurrentBalance_UsesStartingBalance() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(null); // Null current balance
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setStartingBalance(1100.0); // Increase by 100
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getStartingBalance()).isEqualTo(1100.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1100.0); // 1000 (old starting) + 100
+        verify(institutionRepository).save(institution);
+    }
+    
+    @Test
+    void editInstitution_EmptyRequest_NoChanges() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getInstitutionName()).isEqualTo("Test Bank");
+        assertThat(response.getStartingBalance()).isEqualTo(1000.0);
+        assertThat(response.getCurrentBalance()).isEqualTo(1200.0);
+        // save() should not be called when there are no changes
+    }
+    
+    @Test
+    void editInstitution_EmptyName_ThrowsException() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setInstitutionName("");
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(userId, institutionId, request))
+                .isInstanceOf(InvalidInstitutionDataException.class)
+                .hasMessage("Institution name cannot be empty");
+    }
+    
+    @Test
+    void editInstitution_NameTooLong_ThrowsException() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setInstitutionName("a".repeat(101));
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(userId, institutionId, request))
+                .isInstanceOf(InvalidInstitutionDataException.class)
+                .hasMessage("Institution name cannot exceed 100 characters");
+    }
+    
+    @Test
+    void editInstitution_NegativeBalance_ThrowsException() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1200.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setStartingBalance(-100.0);
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(userId, institutionId, request))
+                .isInstanceOf(InvalidInstitutionDataException.class)
+                .hasMessage("Starting balance cannot be negative");
+    }
+    
+    @Test
+    void editInstitution_NullUserId_ThrowsException() {
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(null, "inst-123", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("User ID cannot be null or empty");
+    }
+    
+    @Test
+    void editInstitution_NullInstitutionId_ThrowsException() {
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        
+        assertThatThrownBy(() -> institutionService.editInstitution("user-123", null, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Institution ID cannot be null or empty");
+    }
 }

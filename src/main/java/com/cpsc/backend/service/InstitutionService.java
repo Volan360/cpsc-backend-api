@@ -148,6 +148,116 @@ public class InstitutionService {
     }
 
     /**
+     * Edit an institution for a user
+     */
+    public InstitutionResponse editInstitution(String userId, String institutionId, 
+            com.cpsc.backend.model.EditInstitutionRequest request) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        
+        if (institutionId == null || institutionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Institution ID cannot be null or empty");
+        }
+        
+        try {
+            logger.info("Editing institution {} for user {}", institutionId, userId);
+            
+            // First verify the institution exists and belongs to the user
+            Institution institution = institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+            
+            if (institution == null) {
+                throw new com.cpsc.backend.exception.InstitutionNotFoundException(
+                    "Institution not found with ID: " + institutionId);
+            }
+            
+            boolean updated = false;
+            
+            // Update institution name if provided
+            if (request.getInstitutionName() != null) {
+                String newName = request.getInstitutionName().trim();
+                
+                if (newName.isEmpty()) {
+                    throw new InvalidInstitutionDataException("Institution name cannot be empty");
+                }
+                
+                if (newName.length() > MAX_INSTITUTION_NAME_LENGTH) {
+                    throw new InvalidInstitutionDataException(
+                        "Institution name cannot exceed " + MAX_INSTITUTION_NAME_LENGTH + " characters");
+                }
+                
+                logger.debug("Updating institution name from '{}' to '{}'", 
+                    institution.getInstitutionName(), newName);
+                institution.setInstitutionName(newName);
+                updated = true;
+            }
+            
+            // Update starting balance if provided
+            if (request.getStartingBalance() != null) {
+                double newStartingBalance = request.getStartingBalance();
+                
+                // Validate the new starting balance
+                if (newStartingBalance < 0) {
+                    throw new InvalidInstitutionDataException("Starting balance cannot be negative");
+                }
+                
+                if (newStartingBalance > MAX_STARTING_BALANCE) {
+                    throw new InvalidInstitutionDataException(
+                        "Starting balance cannot exceed " + MAX_STARTING_BALANCE);
+                }
+                
+                if (Double.isNaN(newStartingBalance) || Double.isInfinite(newStartingBalance)) {
+                    throw new InvalidInstitutionDataException("Starting balance must be a valid number");
+                }
+                
+                // Calculate the difference and adjust current balance
+                double oldStartingBalance = institution.getStartingBalance();
+                double difference = newStartingBalance - oldStartingBalance;
+                
+                logger.debug("Updating starting balance from {} to {} (difference: {})", 
+                    oldStartingBalance, newStartingBalance, difference);
+                
+                institution.setStartingBalance(newStartingBalance);
+                
+                // Adjust current balance by the same difference
+                Double currentBalance = institution.getCurrentBalance();
+                if (currentBalance == null) {
+                    currentBalance = oldStartingBalance;
+                }
+                double newCurrentBalance = currentBalance + difference;
+                
+                logger.debug("Adjusting current balance from {} to {}", 
+                    currentBalance, newCurrentBalance);
+                
+                institution.setCurrentBalance(newCurrentBalance);
+                updated = true;
+            }
+            
+            if (!updated) {
+                logger.warn("Edit request for institution {} had no changes", institutionId);
+            } else {
+                institutionRepository.save(institution);
+                logger.info("Successfully edited institution {} for user {}", institutionId, userId);
+            }
+            
+            return mapToResponse(institution);
+            
+        } catch (InvalidInstitutionDataException e) {
+            throw e; // Re-throw validation exceptions
+        } catch (com.cpsc.backend.exception.InstitutionNotFoundException e) {
+            throw e; // Re-throw not found exceptions
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error while editing institution {} for user {}: {}", 
+                institutionId, userId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while editing institution {} for user {}: {}", 
+                institutionId, userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to edit institution", e);
+        }
+    }
+    
+    /**
      * Delete an institution for a user
      */
     public void deleteInstitution(String userId, String institutionId) {
