@@ -12,6 +12,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class TransactionRepository {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRepository.class);
     
     private final DynamoDbTable<Transaction> transactionTable;
+    private final DynamoDbEnhancedClient enhancedClient;
 
     public TransactionRepository(DynamoDbEnhancedClient enhancedClient,
                                   @Value("${dynamodb.transaction.table.name}") String tableName) {
@@ -33,6 +35,7 @@ public class TransactionRepository {
             throw new IllegalArgumentException("Table name cannot be null or empty");
         }
         
+        this.enhancedClient = enhancedClient;
         this.transactionTable = enhancedClient.table(tableName, TableSchema.fromBean(Transaction.class));
         logger.info("TransactionRepository initialized with table: {}", tableName);
     }
@@ -97,6 +100,48 @@ public class TransactionRepository {
                 .build();
         
         transactionTable.deleteItem(key);
+    }
+
+    /**
+     * Bulk delete all transactions for an institution
+     * DynamoDB supports up to 25 items per batch write, so we process in batches
+     */
+    public void deleteAllByInstitutionId(String institutionId) {
+        if (institutionId == null || institutionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Institution ID cannot be null or empty");
+        }
+        
+        List<Transaction> transactions = findAllByInstitutionId(institutionId);
+        
+        if (transactions.isEmpty()) {
+            logger.debug("No transactions to delete for institutionId={}", institutionId);
+            return;
+        }
+        
+        logger.info("Bulk deleting {} transactions for institutionId={}", transactions.size(), institutionId);
+        
+        // Process in batches of 25 (DynamoDB limit)
+        final int BATCH_SIZE = 25;
+        for (int i = 0; i < transactions.size(); i += BATCH_SIZE) {
+            int endIndex = Math.min(i + BATCH_SIZE, transactions.size());
+            List<Transaction> batch = transactions.subList(i, endIndex);
+            
+            WriteBatch.Builder<Transaction> batchBuilder = WriteBatch.builder(Transaction.class)
+                    .mappedTableResource(transactionTable);
+            
+            for (Transaction transaction : batch) {
+                Key key = Key.builder()
+                        .partitionValue(transaction.getInstitutionId())
+                        .sortValue(AttributeValue.builder().n(transaction.getCreatedAt().toString()).build())
+                        .build();
+                batchBuilder.addDeleteItem(key);
+            }
+            
+            enhancedClient.batchWriteItem(r -> r.addWriteBatch(batchBuilder.build()));
+            logger.debug("Deleted batch of {} transactions (items {}-{})", batch.size(), i + 1, endIndex);
+        }
+        
+        logger.info("Successfully bulk deleted {} transactions for institutionId={}", transactions.size(), institutionId);
     }
 
     private void validateTransaction(Transaction transaction) {

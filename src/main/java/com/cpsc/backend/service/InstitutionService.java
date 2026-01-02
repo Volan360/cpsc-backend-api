@@ -1,11 +1,13 @@
 package com.cpsc.backend.service;
 
 import com.cpsc.backend.entity.Institution;
+import com.cpsc.backend.entity.Transaction;
 import com.cpsc.backend.exception.InvalidInstitutionDataException;
 import com.cpsc.backend.model.CreateInstitutionRequest;
 import com.cpsc.backend.model.GetInstitutions200Response;
 import com.cpsc.backend.model.InstitutionResponse;
 import com.cpsc.backend.repository.InstitutionRepository;
+import com.cpsc.backend.repository.TransactionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -31,10 +33,12 @@ public class InstitutionService {
     private static final int DEFAULT_PAGE_SIZE = 50;
     
     private final InstitutionRepository institutionRepository;
+    private final TransactionRepository transactionRepository;
     private final ObjectMapper objectMapper;
 
-    public InstitutionService(InstitutionRepository institutionRepository) {
+    public InstitutionService(InstitutionRepository institutionRepository, TransactionRepository transactionRepository) {
         this.institutionRepository = institutionRepository;
+        this.transactionRepository = transactionRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -259,6 +263,7 @@ public class InstitutionService {
     
     /**
      * Delete an institution for a user
+     * This will cascade delete all transactions associated with the institution
      */
     public void deleteInstitution(String userId, String institutionId) {
         if (userId == null || userId.trim().isEmpty()) {
@@ -275,10 +280,13 @@ public class InstitutionService {
             // First verify the institution exists and belongs to the user
             institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
             
-            // If no exception was thrown, the institution exists and we can delete it
+            // Bulk delete all transactions associated with this institution
+            transactionRepository.deleteAllByInstitutionId(institutionId);
+            
+            // Then delete the institution itself
             institutionRepository.delete(userId, institutionId);
             
-            logger.info("Successfully deleted institution {} for user {}", institutionId, userId);
+            logger.info("Successfully deleted institution {} and all associated transactions for user {}", institutionId, userId);
             
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error while deleting institution {} for user {}: {}", 
