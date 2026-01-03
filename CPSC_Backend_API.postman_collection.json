@@ -377,6 +377,42 @@
           "response": []
         },
         {
+          "name": "Update Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "JWT token from login"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"WITHDRAWAL\",\n  \"amount\": 200.00,\n  \"description\": \"Updated description for transaction\",\n  \"tags\": [\"updated\", \"expense\"],\n  \"transactionDate\": 1735041600\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000/transactions/550e8400-e29b-41d4-a716-446655440002",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "institutions",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "transactions",
+                "550e8400-e29b-41d4-a716-446655440002"
+              ]
+            },
+            "description": "Update an existing transaction for the authenticated user. All fields in the request body are optional - only include the fields you want to update. Replace the institution UUID and transaction UUID in the path with actual IDs from Get Institution Transactions response."
+          },
+          "response": []
+        },
+        {
           "name": "Delete Transaction",
           "request": {
             "method": "DELETE",
