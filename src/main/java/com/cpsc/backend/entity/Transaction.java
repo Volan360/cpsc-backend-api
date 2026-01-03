@@ -17,6 +17,7 @@ public class Transaction {
     private Double amount;
     private List<String> tags;
     private String description;
+    private Long transactionDate; // When the transaction actually occurred
 
     public Transaction() {
     }
@@ -85,5 +86,13 @@ public class Transaction {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Long getTransactionDate() {
+        return transactionDate;
+    }
+
+    public void setTransactionDate(Long transactionDate) {
+        this.transactionDate = transactionDate;
     }
 }

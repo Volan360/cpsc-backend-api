@@ -688,6 +688,11 @@ components:
           maxLength: 500
           example: "Weekly grocery shopping at Whole Foods"
           description: Optional description of the transaction
+        transactionDate:
+          type: integer
+          format: int64
+          example: 1735041600
+          description: Optional UNIX timestamp (seconds since epoch) for when the transaction occurred. If not provided, the current time will be used.
 
     TransactionResponse:
       type: object
@@ -724,8 +729,13 @@ components:
           type: string
           example: "Weekly grocery shopping at Whole Foods"
           description: Description of the transaction
+        transactionDate:
+          type: integer
+          format: int64
+          example: 1735041600
+          description: UNIX timestamp (seconds since epoch) when the transaction occurred
         createdAt:
           type: integer
           format: int64
           example: 1735041600
-          description: UNIX timestamp (seconds since epoch) when the transaction was created
+          description: UNIX timestamp (seconds since epoch) when the transaction record was created in the system
