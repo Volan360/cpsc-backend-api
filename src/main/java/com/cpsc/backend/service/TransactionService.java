@@ -56,10 +56,19 @@ public class TransactionService {
             transaction.setAmount(request.getAmount());
             transaction.setTags(request.getTags());
             transaction.setDescription(request.getDescription());
+            
+            // Use provided transaction date or current time if not specified
+            Long transactionDate = request.getTransactionDate();
+            if (transactionDate == null) {
+                transactionDate = Instant.now().getEpochSecond();
+            }
+            transaction.setTransactionDate(transactionDate);
+            
+            // Always set createdAt to current time (when the record is created)
             transaction.setCreatedAt(Instant.now().getEpochSecond());
 
-            logger.info("Creating transaction for institution {} with type {} and amount {}", 
-                institutionId, request.getType(), request.getAmount());
+            logger.info("Creating transaction for institution {} with type {} and amount {} at timestamp {}", 
+                institutionId, request.getType(), request.getAmount(), transactionDate);
             
             transactionRepository.save(transaction);
             
@@ -242,6 +251,7 @@ public class TransactionService {
             response.setAmount(transaction.getAmount());
             response.setTags(transaction.getTags());
             response.setDescription(transaction.getDescription());
+            response.setTransactionDate(transaction.getTransactionDate());
             response.setCreatedAt(transaction.getCreatedAt());
             return response;
         } catch (IllegalArgumentException e) {
