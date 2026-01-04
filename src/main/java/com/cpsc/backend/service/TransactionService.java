@@ -5,6 +5,7 @@ import com.cpsc.backend.exception.InstitutionNotFoundException;
 import com.cpsc.backend.exception.InvalidTransactionDataException;
 import com.cpsc.backend.model.CreateTransactionRequest;
 import com.cpsc.backend.model.TransactionResponse;
+import com.cpsc.backend.model.UpdateTransactionRequest;
 import com.cpsc.backend.repository.InstitutionRepository;
 import com.cpsc.backend.repository.TransactionRepository;
 import org.slf4j.Logger;
@@ -184,6 +185,111 @@ public class TransactionService {
         }
     }
 
+    public TransactionResponse updateTransaction(String userId, UUID institutionId, UUID transactionId, 
+                                                  UpdateTransactionRequest request) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        if (institutionId == null) {
+            throw new IllegalArgumentException("Institution ID cannot be null");
+        }
+        if (transactionId == null) {
+            throw new IllegalArgumentException("Transaction ID cannot be null");
+        }
+        
+        String institutionIdStr = institutionId.toString();
+        
+        // Validate the institution exists and belongs to the user
+        com.cpsc.backend.entity.Institution institution = 
+            institutionRepository.findByUserIdAndInstitutionId(userId, institutionIdStr);
+        
+        try {
+            logger.debug("Fetching transaction {} for institution {} to update", 
+                transactionId, institutionIdStr);
+            
+            // Get all transactions for this institution to find the one with matching transactionId
+            List<Transaction> transactions = transactionRepository.findAllByInstitutionId(institutionIdStr);
+            
+            Transaction existingTransaction = transactions.stream()
+                    .filter(t -> transactionId.toString().equals(t.getTransactionId()))
+                    .findFirst()
+                    .orElseThrow(() -> new InstitutionNotFoundException(
+                        "Transaction not found with ID: " + transactionId));
+            
+            // Verify the transaction belongs to the user
+            if (!userId.equals(existingTransaction.getUserId())) {
+                throw new InstitutionNotFoundException("Transaction not found with ID: " + transactionId);
+            }
+            
+            logger.info("Updating transaction {} for institution {}", transactionId, institutionIdStr);
+            
+            // Store old values for balance recalculation
+            String oldType = existingTransaction.getType();
+            Double oldAmount = existingTransaction.getAmount();
+            
+            // Update fields if provided
+            boolean typeChanged = false;
+            boolean amountChanged = false;
+            
+            if (request.getType() != null) {
+                String newType = request.getType().getValue();
+                if (!newType.equals(oldType)) {
+                    existingTransaction.setType(newType);
+                    typeChanged = true;
+                }
+            }
+            
+            if (request.getAmount() != null) {
+                validateAmount(request.getAmount());
+                if (!request.getAmount().equals(oldAmount)) {
+                    existingTransaction.setAmount(request.getAmount());
+                    amountChanged = true;
+                }
+            }
+            
+            if (request.getDescription() != null) {
+                existingTransaction.setDescription(request.getDescription());
+            }
+            
+            if (request.getTags() != null) {
+                existingTransaction.setTags(request.getTags());
+            }
+            
+            if (request.getTransactionDate() != null) {
+                existingTransaction.setTransactionDate(request.getTransactionDate());
+            }
+            
+            // Update balance if type or amount changed
+            if (typeChanged || amountChanged) {
+                // First, reverse the old transaction
+                updateInstitutionBalance(institution, oldType, oldAmount, true);
+                
+                // Then apply the new transaction
+                updateInstitutionBalance(institution, existingTransaction.getType(), 
+                    existingTransaction.getAmount(), false);
+            }
+            
+            // Save the updated transaction
+            transactionRepository.save(existingTransaction);
+            
+            logger.info("Successfully updated transaction {} for institution {}", 
+                transactionId, institutionIdStr);
+            
+            return mapToResponse(existingTransaction);
+            
+        } catch (InstitutionNotFoundException e) {
+            throw e;
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error while updating transaction {}: {}", 
+                transactionId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while updating transaction {}: {}", 
+                transactionId, e.getMessage(), e);
+            throw new RuntimeException("Failed to update transaction", e);
+        }
+    }
+
     /**
      * Update institution's current balance based on transaction type
      * @param institution The institution to update
@@ -225,8 +331,10 @@ public class TransactionService {
             throw new InvalidTransactionDataException("Transaction amount cannot be null");
         }
         
-        double amount = request.getAmount();
-        
+        validateAmount(request.getAmount());
+    }
+    
+    private void validateAmount(Double amount) {
         // Check for NaN and Infinity first before numeric comparisons
         if (Double.isNaN(amount) || Double.isInfinite(amount)) {
             throw new InvalidTransactionDataException("Transaction amount must be a valid number");

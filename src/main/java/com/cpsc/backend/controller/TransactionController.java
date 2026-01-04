@@ -3,6 +3,7 @@ package com.cpsc.backend.controller;
 import com.cpsc.backend.api.TransactionsApi;
 import com.cpsc.backend.model.CreateTransactionRequest;
 import com.cpsc.backend.model.TransactionResponse;
+import com.cpsc.backend.model.UpdateTransactionRequest;
 import com.cpsc.backend.service.TransactionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +58,20 @@ public class TransactionController implements TransactionsApi {
         transactionService.deleteTransaction(userId, institutionId, transactionId);
         
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<TransactionResponse> updateTransaction(UUID institutionId, UUID transactionId, 
+                                                                   UpdateTransactionRequest updateTransactionRequest) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to update transaction {} for institution {} from user {}", 
+            transactionId, institutionId, userId);
+        
+        TransactionResponse response = transactionService.updateTransaction(userId, institutionId, 
+            transactionId, updateTransactionRequest);
+        
+        return ResponseEntity.ok(response);
     }
 
     private String getAuthenticatedUserId() {
