@@ -67,6 +67,7 @@ class InstitutionServiceTest {
         assertThat(response.getInstitutionName()).isEqualTo("Test Bank");
         assertThat(response.getStartingBalance()).isEqualTo(1000.0);
         assertThat(response.getCurrentBalance()).isEqualTo(1000.0); // currentBalance should equal startingBalance
+        assertThat(response.getAllocatedPercent()).isEqualTo(0); // allocatedPercent should default to 0
         verify(institutionRepository).save(any(Institution.class));
     }
 
@@ -725,5 +726,129 @@ class InstitutionServiceTest {
         assertThatThrownBy(() -> institutionService.editInstitution("user-123", null, request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Institution ID cannot be null or empty");
+    }
+
+    @Test
+    void editInstitution_UpdateAllocatedPercent_Success() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        institution.setAllocatedPercent(0);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setAllocatedPercent(50);
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getAllocatedPercent()).isEqualTo(50);
+        verify(institutionRepository).save(any(Institution.class));
+    }
+
+    @Test
+    void editInstitution_AllocatedPercentMaxValue_Success() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        institution.setAllocatedPercent(0);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setAllocatedPercent(100);
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getAllocatedPercent()).isEqualTo(100);
+    }
+
+    @Test
+    void editInstitution_AllocatedPercentZero_Success() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        institution.setAllocatedPercent(50);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        doNothing().when(institutionRepository).save(any(Institution.class));
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setAllocatedPercent(0);
+        
+        InstitutionResponse response = institutionService.editInstitution(userId, institutionId, request);
+        
+        assertThat(response.getAllocatedPercent()).isEqualTo(0);
+    }
+
+    @Test
+    void editInstitution_AllocatedPercentNegative_ThrowsException() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        institution.setAllocatedPercent(0);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setAllocatedPercent(-1);
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(userId, institutionId, request))
+                .isInstanceOf(InvalidInstitutionDataException.class)
+                .hasMessage("Allocated percent must be between 0 and 100");
+    }
+
+    @Test
+    void editInstitution_AllocatedPercentExceedsMax_ThrowsException() {
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String institutionId = UUID.randomUUID().toString();
+        
+        Institution institution = new Institution();
+        institution.setUserId(userId);
+        institution.setInstitutionId(institutionId);
+        institution.setInstitutionName("Test Bank");
+        institution.setStartingBalance(1000.0);
+        institution.setCurrentBalance(1000.0);
+        institution.setCreatedAt(System.currentTimeMillis() / 1000L);
+        institution.setAllocatedPercent(0);
+        
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, institutionId)).thenReturn(institution);
+        
+        com.cpsc.backend.model.EditInstitutionRequest request = new com.cpsc.backend.model.EditInstitutionRequest();
+        request.setAllocatedPercent(101);
+        
+        assertThatThrownBy(() -> institutionService.editInstitution(userId, institutionId, request))
+                .isInstanceOf(InvalidInstitutionDataException.class)
+                .hasMessage("Allocated percent must be between 0 and 100");
     }
 }

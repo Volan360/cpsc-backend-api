@@ -16,6 +16,7 @@ class InstitutionTest {
         assertThat(institution.getInstitutionName()).isNull();
         assertThat(institution.getStartingBalance()).isNull();
         assertThat(institution.getCreatedAt()).isNull();
+        assertThat(institution.getAllocatedPercent()).isNull();
     }
 
     @Test
@@ -27,18 +28,21 @@ class InstitutionTest {
         String institutionName = "Test Bank";
         Double startingBalance = 1000.0;
         Long createdAt = System.currentTimeMillis() / 1000L;
+        Integer allocatedPercent = 25;
 
         institution.setUserId(userId);
         institution.setInstitutionId(institutionId);
         institution.setInstitutionName(institutionName);
         institution.setStartingBalance(startingBalance);
         institution.setCreatedAt(createdAt);
+        institution.setAllocatedPercent(allocatedPercent);
 
         assertThat(institution.getUserId()).isEqualTo(userId);
         assertThat(institution.getInstitutionId()).isEqualTo(institutionId);
         assertThat(institution.getInstitutionName()).isEqualTo(institutionName);
         assertThat(institution.getStartingBalance()).isEqualTo(startingBalance);
         assertThat(institution.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(institution.getAllocatedPercent()).isEqualTo(allocatedPercent);
     }
 
     @Test
@@ -137,11 +141,38 @@ class InstitutionTest {
         institution.setInstitutionName("Chase Bank");
         institution.setStartingBalance(5000.50);
         institution.setCreatedAt(1704067200L);
+        institution.setAllocatedPercent(50);
         
         assertThat(institution.getUserId()).isEqualTo("user-123");
         assertThat(institution.getInstitutionId()).isEqualTo("inst-456");
         assertThat(institution.getInstitutionName()).isEqualTo("Chase Bank");
         assertThat(institution.getStartingBalance()).isEqualTo(5000.50);
         assertThat(institution.getCreatedAt()).isEqualTo(1704067200L);
+        assertThat(institution.getAllocatedPercent()).isEqualTo(50);
+    }
+
+    @Test
+    void setAllocatedPercent_AllowsZero() {
+        Institution institution = new Institution();
+        institution.setAllocatedPercent(0);
+        
+        assertThat(institution.getAllocatedPercent()).isEqualTo(0);
+    }
+
+    @Test
+    void setAllocatedPercent_AllowsMaxValue() {
+        Institution institution = new Institution();
+        institution.setAllocatedPercent(100);
+        
+        assertThat(institution.getAllocatedPercent()).isEqualTo(100);
+    }
+
+    @Test
+    void setAllocatedPercent_AllowsNullValue() {
+        Institution institution = new Institution();
+        institution.setAllocatedPercent(25);
+        institution.setAllocatedPercent(null);
+        
+        assertThat(institution.getAllocatedPercent()).isNull();
     }
 }
