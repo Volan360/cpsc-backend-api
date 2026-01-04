@@ -1,8 +1,6 @@
 package com.cpsc.backend.controller;
 
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.cpsc.backend.model.*;
-import com.cpsc.backend.security.JwtValidator;
 import com.cpsc.backend.service.CognitoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,16 +28,10 @@ class AuthControllerTest {
     private CognitoService cognitoService;
 
     @Mock
-    private JwtValidator jwtValidator;
-
-    @Mock
     private Authentication authentication;
 
     @Mock
     private SecurityContext securityContext;
-
-    @Mock
-    private DecodedJWT decodedJWT;
 
     private AuthController authController;
 
@@ -50,7 +42,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        authController = new AuthController(cognitoService, jwtValidator);
+        authController = new AuthController(cognitoService);
 
         signUpRequest = new SignUpRequest();
         signUpRequest.setEmail("test@example.com");
@@ -244,13 +236,16 @@ class AuthControllerTest {
     @Test
     void getProfile_Success() {
         try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
-            // Arrange - use a valid JWT structure (header.payload.signature)
-            String mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJUZXN0VXNlcjEyMyJ9.mock_signature";
+            // Arrange
+            String mockToken = "mock-access-token";
+            Map<String, String> profileResult = new HashMap<>();
+            profileResult.put("email", "test@example.com");
+            profileResult.put("preferred_username", "TestUser123");
+            
             securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.getCredentials()).thenReturn(mockToken);
-            when(jwtValidator.getEmail(any(DecodedJWT.class))).thenReturn("test@example.com");
-            when(jwtValidator.getScreenName(any(DecodedJWT.class))).thenReturn("TestUser123");
+            when(cognitoService.getUserProfile(mockToken)).thenReturn(profileResult);
 
             // Act
             ResponseEntity<GetProfile200Response> response = authController.getProfile();
@@ -262,6 +257,8 @@ class AuthControllerTest {
             assertThat(response.getBody().getEmail()).isEqualTo("test@example.com");
             assertThat(response.getBody().getScreenName()).isEqualTo("TestUser123");
             assertThat(response.getBody().getAuthenticated()).isTrue();
+            
+            verify(cognitoService).getUserProfile(mockToken);
         }
     }
 }

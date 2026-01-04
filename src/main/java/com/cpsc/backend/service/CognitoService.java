@@ -175,6 +175,32 @@ public class CognitoService {
     }
 
     /**
+     * Get user profile attributes using the access token
+     * Uses Cognito GetUser API which returns user attributes for the authenticated user
+     */
+    public Map<String, String> getUserProfile(String accessToken) {
+        try {
+            GetUserRequest request = GetUserRequest.builder()
+                    .accessToken(accessToken)
+                    .build();
+
+            GetUserResponse response = cognitoClient.getUser(request);
+            
+            Map<String, String> profile = new HashMap<>();
+            profile.put("username", response.username());
+            
+            // Extract attributes from response
+            for (AttributeType attr : response.userAttributes()) {
+                profile.put(attr.name(), attr.value());
+            }
+            
+            return profile;
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error getting user profile: " + e.getMessage());
+        }
+    }
+
+    /**
      * Calculate the secret hash required for authentication
      */
     private String calculateSecretHash(String username) {

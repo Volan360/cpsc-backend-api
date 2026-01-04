@@ -211,4 +211,47 @@ class CognitoServiceTest {
 
         verify(cognitoClient).initiateAuth(any(InitiateAuthRequest.class));
     }
+
+    @Test
+    void getUserProfile_Success() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        GetUserResponse getUserResponse = GetUserResponse.builder()
+                .username("04b8b408-3011-70f9-5a38-7a897cf03438")
+                .userAttributes(
+                        AttributeType.builder().name("email").value("test@example.com").build(),
+                        AttributeType.builder().name("preferred_username").value("TestUser123").build(),
+                        AttributeType.builder().name("sub").value("04b8b408-3011-70f9-5a38-7a897cf03438").build()
+                )
+                .build();
+
+        when(cognitoClient.getUser(any(GetUserRequest.class))).thenReturn(getUserResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.getUserProfile(accessToken);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("username")).isEqualTo("04b8b408-3011-70f9-5a38-7a897cf03438");
+        assertThat(result.get("email")).isEqualTo("test@example.com");
+        assertThat(result.get("preferred_username")).isEqualTo("TestUser123");
+        assertThat(result.get("sub")).isEqualTo("04b8b408-3011-70f9-5a38-7a897cf03438");
+
+        verify(cognitoClient).getUser(any(GetUserRequest.class));
+    }
+
+    @Test
+    void getUserProfile_InvalidToken_ThrowsException() {
+        // Arrange
+        String invalidToken = "invalid-token";
+        when(cognitoClient.getUser(any(GetUserRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder().message("Invalid token").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.getUserProfile(invalidToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error getting user profile");
+
+        verify(cognitoClient).getUser(any(GetUserRequest.class));
+    }
 }

@@ -1,7 +1,5 @@
 package com.cpsc.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.cpsc.backend.api.AuthenticationApi;
 import com.cpsc.backend.model.ConfirmSignUpRequest;
 import com.cpsc.backend.model.ConfirmSignUpResponse;
@@ -13,7 +11,6 @@ import com.cpsc.backend.model.ResendCodeRequest;
 import com.cpsc.backend.model.ResendCodeResponse;
 import com.cpsc.backend.model.SignUpRequest;
 import com.cpsc.backend.model.SignUpResponse;
-import com.cpsc.backend.security.JwtValidator;
 import com.cpsc.backend.service.CognitoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,11 +27,9 @@ public class AuthController implements AuthenticationApi {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final CognitoService cognitoService;
-    private final JwtValidator jwtValidator;
 
-    public AuthController(CognitoService cognitoService, JwtValidator jwtValidator) {
+    public AuthController(CognitoService cognitoService) {
         this.cognitoService = cognitoService;
-        this.jwtValidator = jwtValidator;
     }
 
     @Override
@@ -128,17 +123,16 @@ public class AuthController implements AuthenticationApi {
     public ResponseEntity<GetProfile200Response> getProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         
-        // The JWT token is stored as credentials in the authentication
-        String token = (String) authentication.getCredentials();
-        DecodedJWT decodedJWT = JWT.decode(token);
+        // The access token is stored as credentials in the authentication
+        String accessToken = (String) authentication.getCredentials();
         
-        String email = jwtValidator.getEmail(decodedJWT);
-        String screenName = jwtValidator.getScreenName(decodedJWT);
+        // Use Cognito GetUser API to fetch user attributes (including preferred_username)
+        Map<String, String> profile = cognitoService.getUserProfile(accessToken);
         
         GetProfile200Response response = new GetProfile200Response();
         response.setMessage("Welcome to your profile!");
-        response.setEmail(email);
-        response.setScreenName(screenName);
+        response.setEmail(profile.get("email"));
+        response.setScreenName(profile.get("preferred_username"));
         response.setAuthenticated(true);
         
         return ResponseEntity.ok(response);
