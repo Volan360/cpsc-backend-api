@@ -47,7 +47,7 @@ paths:
   /api/secure/profile:
     get:
       tags:
-        - Test
+        - Authentication
       summary: Get user profile (Protected)
       description: Returns user profile information. Requires authentication.
       operationId: getProfile

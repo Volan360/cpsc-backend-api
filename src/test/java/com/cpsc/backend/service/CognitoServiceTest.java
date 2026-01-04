@@ -48,7 +48,7 @@ class CognitoServiceTest {
         when(cognitoClient.signUp(any(SignUpRequest.class))).thenReturn(mockResponse);
 
         // Act
-        Map<String, String> result = cognitoService.signUp("test@example.com", "Test@1234");
+        Map<String, String> result = cognitoService.signUp("test@example.com", "Test@1234", "TestUser123");
 
         // Assert
         assertThat(result).isNotNull();
@@ -66,7 +66,7 @@ class CognitoServiceTest {
                 .thenThrow(UsernameExistsException.builder().message("User exists").build());
 
         // Act & Assert
-        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "Test@1234"))
+        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "Test@1234", "TestUser123"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Username already exists");
 
@@ -80,7 +80,7 @@ class CognitoServiceTest {
                 .thenThrow(InvalidPasswordException.builder().message("Weak password").build());
 
         // Act & Assert
-        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "weak"))
+        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "weak", "TestUser123"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Invalid password. Password must meet the requirements.");
 
@@ -150,10 +150,13 @@ class CognitoServiceTest {
 
     @Test
     void login_Success() {
-        // Arrange
+        // Arrange - create a valid JWT structure (header.payload.signature)
+        // The payload contains: {"email":"test@example.com","preferred_username":"TestUser123"}
+        String mockIdToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJUZXN0VXNlcjEyMyJ9.mock_signature";
+        
         AuthenticationResultType authResult = AuthenticationResultType.builder()
                 .accessToken("access-token")
-                .idToken("id-token")
+                .idToken(mockIdToken)
                 .refreshToken("refresh-token")
                 .expiresIn(3600)
                 .tokenType("Bearer")
@@ -171,10 +174,12 @@ class CognitoServiceTest {
         // Assert
         assertThat(result).isNotNull();
         assertThat(result.get("accessToken")).isEqualTo("access-token");
-        assertThat(result.get("idToken")).isEqualTo("id-token");
+        assertThat(result.get("idToken")).isEqualTo(mockIdToken);
         assertThat(result.get("refreshToken")).isEqualTo("refresh-token");
         assertThat(result.get("expiresIn")).isEqualTo("3600");
         assertThat(result.get("tokenType")).isEqualTo("Bearer");
+        assertThat(result.get("screenName")).isEqualTo("TestUser123");
+        assertThat(result.get("email")).isEqualTo("test@example.com");
 
         verify(cognitoClient).initiateAuth(any(InitiateAuthRequest.class));
     }

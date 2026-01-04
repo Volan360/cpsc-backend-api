@@ -6,11 +6,11 @@ import com.cpsc.backend.model.CreateInstitutionRequest;
 import com.cpsc.backend.model.GetInstitutions200Response;
 import com.cpsc.backend.model.InstitutionResponse;
 import com.cpsc.backend.repository.InstitutionRepository;
+import com.cpsc.backend.repository.TransactionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -41,13 +41,16 @@ class InstitutionServiceTest {
     @Mock
     private InstitutionRepository institutionRepository;
 
-    @InjectMocks
+    @Mock
+    private TransactionRepository transactionRepository;
+
     private InstitutionService institutionService;
 
     private CreateInstitutionRequest validRequest;
 
     @BeforeEach
     void setUp() {
+        institutionService = new InstitutionService(institutionRepository, transactionRepository);
         validRequest = new CreateInstitutionRequest();
         validRequest.setInstitutionName("Test Bank");
         validRequest.setStartingBalance(1000.0);
@@ -420,11 +423,13 @@ class InstitutionServiceTest {
         institution.setCreatedAt(System.currentTimeMillis() / 1000L);
 
         when(institutionRepository.findByUserIdAndInstitutionId("user-123", "inst-123")).thenReturn(institution);
+        doNothing().when(transactionRepository).deleteAllByInstitutionId("inst-123");
         doNothing().when(institutionRepository).delete("user-123", "inst-123");
 
         institutionService.deleteInstitution("user-123", "inst-123");
 
         verify(institutionRepository).findByUserIdAndInstitutionId("user-123", "inst-123");
+        verify(transactionRepository).deleteAllByInstitutionId("inst-123");
         verify(institutionRepository).delete("user-123", "inst-123");
     }
 

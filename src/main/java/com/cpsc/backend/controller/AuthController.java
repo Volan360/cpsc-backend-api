@@ -1,20 +1,26 @@
 package com.cpsc.backend.controller;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.cpsc.backend.api.AuthenticationApi;
 import com.cpsc.backend.model.ConfirmSignUpRequest;
 import com.cpsc.backend.model.ConfirmSignUpResponse;
 import com.cpsc.backend.model.ErrorResponse;
+import com.cpsc.backend.model.GetProfile200Response;
 import com.cpsc.backend.model.LoginRequest;
 import com.cpsc.backend.model.LoginResponse;
 import com.cpsc.backend.model.ResendCodeRequest;
 import com.cpsc.backend.model.ResendCodeResponse;
 import com.cpsc.backend.model.SignUpRequest;
 import com.cpsc.backend.model.SignUpResponse;
+import com.cpsc.backend.security.JwtValidator;
 import com.cpsc.backend.service.CognitoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -24,9 +30,11 @@ public class AuthController implements AuthenticationApi {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final CognitoService cognitoService;
+    private final JwtValidator jwtValidator;
 
-    public AuthController(CognitoService cognitoService) {
+    public AuthController(CognitoService cognitoService, JwtValidator jwtValidator) {
         this.cognitoService = cognitoService;
+        this.jwtValidator = jwtValidator;
     }
 
     @Override
@@ -114,5 +122,25 @@ public class AuthController implements AuthenticationApi {
             error.setError(e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
+    }
+
+    @Override
+    public ResponseEntity<GetProfile200Response> getProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        // The JWT token is stored as credentials in the authentication
+        String token = (String) authentication.getCredentials();
+        DecodedJWT decodedJWT = JWT.decode(token);
+        
+        String email = jwtValidator.getEmail(decodedJWT);
+        String screenName = jwtValidator.getScreenName(decodedJWT);
+        
+        GetProfile200Response response = new GetProfile200Response();
+        response.setMessage("Welcome to your profile!");
+        response.setEmail(email);
+        response.setScreenName(screenName);
+        response.setAuthenticated(true);
+        
+        return ResponseEntity.ok(response);
     }
 }
