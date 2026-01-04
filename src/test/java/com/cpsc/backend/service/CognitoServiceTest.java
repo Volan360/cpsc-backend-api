@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.*;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -151,8 +153,11 @@ class CognitoServiceTest {
     @Test
     void login_Success() {
         // Arrange - create a valid JWT structure (header.payload.signature)
-        // The payload contains: {"email":"test@example.com","preferred_username":"TestUser123"}
-        String mockIdToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJUZXN0VXNlcjEyMyJ9.mock_signature";
+        // Generate the token dynamically to avoid GitGuardian false positives
+        String mockIdToken = buildMockJwt(
+            "{\"alg\":\"HS256\",\"typ\":\"JWT\"}",
+            "{\"email\":\"test@example.com\",\"preferred_username\":\"TestUser123\"}"
+        );
         
         AuthenticationResultType authResult = AuthenticationResultType.builder()
                 .accessToken("access-token")
@@ -253,5 +258,17 @@ class CognitoServiceTest {
                 .hasMessageContaining("Error getting user profile");
 
         verify(cognitoClient).getUser(any(GetUserRequest.class));
+    }
+
+    /**
+     * Helper method to build a mock JWT token dynamically.
+     * This avoids hardcoding tokens that trigger secret detection tools.
+     */
+    private String buildMockJwt(String header, String payload) {
+        String encodedHeader = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(header.getBytes(StandardCharsets.UTF_8));
+        String encodedPayload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        return encodedHeader + "." + encodedPayload + ".mock_signature";
     }
 }
