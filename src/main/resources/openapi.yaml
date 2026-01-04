@@ -67,6 +67,10 @@ paths:
                   email:
                     type: string
                     example: "user@example.com"
+                  screenName:
+                    type: string
+                    example: "JohnDoe123"
+                    description: User's display name
                   authenticated:
                     type: boolean
                     example: true
@@ -543,6 +547,7 @@ components:
       required:
         - email
         - password
+        - screenName
       properties:
         email:
           type: string
@@ -553,6 +558,12 @@ components:
           format: password
           minLength: 8
           example: "Test@1234"
+        screenName:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "JohnDoe123"
+          description: Display name shown throughout the application
     
     SignUpResponse:
       type: object
@@ -639,6 +650,15 @@ components:
         tokenType:
           type: string
           example: "Bearer"
+        screenName:
+          type: string
+          description: User's display name
+          example: "JohnDoe123"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
     
     ErrorResponse:
       type: object

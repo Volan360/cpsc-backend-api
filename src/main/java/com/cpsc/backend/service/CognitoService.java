@@ -1,5 +1,7 @@
 package com.cpsc.backend.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.cpsc.backend.config.SecretsManagerConfig;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
@@ -32,9 +34,9 @@ public class CognitoService {
 
     /**
      * Sign up a new user in AWS Cognito
-     * Uses email as the username
+     * Uses email as the username, stores screen name as preferred_username
      */
-    public Map<String, String> signUp(String email, String password) {
+    public Map<String, String> signUp(String email, String password, String screenName) {
         try {
             String secretHash = calculateSecretHash(email);
 
@@ -47,6 +49,10 @@ public class CognitoService {
                             AttributeType.builder()
                                     .name("email")
                                     .value(email)
+                                    .build(),
+                            AttributeType.builder()
+                                    .name("preferred_username")
+                                    .value(screenName)
                                     .build()
                     )
                     .build();
@@ -144,12 +150,19 @@ public class CognitoService {
 
             AuthenticationResultType authResult = authResponse.authenticationResult();
 
+            // Decode the ID token to extract user attributes
+            DecodedJWT decodedIdToken = JWT.decode(authResult.idToken());
+            String screenName = decodedIdToken.getClaim("preferred_username").asString();
+            String userEmail = decodedIdToken.getClaim("email").asString();
+
             Map<String, String> response = new HashMap<>();
             response.put("accessToken", authResult.accessToken());
             response.put("idToken", authResult.idToken());
             response.put("refreshToken", authResult.refreshToken());
             response.put("expiresIn", String.valueOf(authResult.expiresIn()));
             response.put("tokenType", authResult.tokenType());
+            response.put("screenName", screenName);
+            response.put("email", userEmail);
             return response;
 
         } catch (NotAuthorizedException e) {

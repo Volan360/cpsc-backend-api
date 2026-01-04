@@ -34,7 +34,8 @@ public class AuthController implements AuthenticationApi {
         try {
             Map<String, String> result = cognitoService.signUp(
                 request.getEmail(),
-                request.getPassword()
+                request.getPassword(),
+                request.getScreenName()
             );
             
             SignUpResponse response = new SignUpResponse();
@@ -102,6 +103,8 @@ public class AuthController implements AuthenticationApi {
             response.setRefreshToken(result.get("refreshToken"));
             response.setExpiresIn(result.get("expiresIn"));
             response.setTokenType(result.get("tokenType"));
+            response.setScreenName(result.get("screenName"));
+            response.setEmail(result.get("email"));
             
             logger.info("Login successful for email: {}", request.getEmail());
             return ResponseEntity.ok(response);
