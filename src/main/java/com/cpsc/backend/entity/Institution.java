@@ -13,6 +13,7 @@ public class Institution {
     private Double startingBalance;
     private Double currentBalance;
     private Long createdAt;
+    private Integer allocatedPercent;
 
     public Institution() {
     }
@@ -65,5 +66,13 @@ public class Institution {
 
     public void setCreatedAt(Long createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Integer getAllocatedPercent() {
+        return allocatedPercent;
+    }
+
+    public void setAllocatedPercent(Integer allocatedPercent) {
+        this.allocatedPercent = allocatedPercent;
     }
 }

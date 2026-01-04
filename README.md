@@ -4,7 +4,7 @@ A Spring Boot REST API with AWS Cognito authentication, built with Gradle and Op
 
 ## Prerequisites
 
-- Java 17 or higher
+- Java 24 or higher (Java 24 currently installed and fully supported)
 - No need to install Gradle - the project includes the Gradle wrapper
 
 ## Running the Application
@@ -23,13 +23,16 @@ A Spring Boot REST API with AWS Cognito authentication, built with Gradle and Op
 
 - **AWS Cognito Authentication**: Email-based user authentication with JWT tokens
 - **Email Verification**: Required email confirmation before login
+- **Screen Names**: User display names (screen names) stored in Cognito
 - **Secure Endpoints**: JWT-protected API routes
 - **OpenAPI Code Generation**: API-first development with OpenAPI 3.0 specification
 - **AWS Secrets Manager**: Secure credential storage for Cognito configuration
-- **DynamoDB Integration**: Financial institution and transaction management with environment-specific tables
-- **Transaction Management**: Create and track deposits/withdrawals with tags and descriptions
-- **Postman Collection**: Pre-configured API testing collection
-- **Comprehensive Testing**: 206 tests with 90% instruction coverage and 85% branch coverage
+- **DynamoDB Integration**: Financial institution, transaction, and goal management with environment-specific tables
+- **Institution Management**: Create, edit, and delete financial institutions with starting/current balances
+- **Transaction Management**: Create, update, and delete deposits/withdrawals with tags and descriptions
+- **Goal Management**: Create financial goals with institution allocation percentages (validates ownership and allocation limits)
+- **Postman Collection**: Pre-configured API testing collection with automatic token management
+- **Comprehensive Testing**: 291 tests with full coverage of all endpoints and business logic
 
 ## Environment Configuration
 
@@ -52,6 +55,11 @@ The application requires AWS credentials and environment-specific configuration:
   - **acpt**: `Transactions-acpt`
   - **prod**: `Transactions-prod`
 
+- `DYNAMODB_GOALS_TABLE_NAME`: Name of the DynamoDB goals table
+  - **devl**: `Goals-devl`
+  - **acpt**: `Goals-acpt`
+  - **prod**: `Goals-prod`
+
 - `AWS_REGION`: AWS region (default: `us-east-1`)
 
 ### Local Development
@@ -71,6 +79,7 @@ Or set environment variables directly:
 $env:AWS_SECRET_NAME = "cpsc-backend/cognito-devl"
 $env:DYNAMODB_TABLE_NAME = "Institutions-devl"
 $env:DYNAMODB_TRANSACTION_TABLE_NAME = "Transactions-devl"
+$env:DYNAMODB_GOALS_TABLE_NAME = "Goals-devl"
 $env:AWS_REGION = "us-east-1"
 ```
 
@@ -84,7 +93,7 @@ The application is deployed to AWS ECS Fargate using CodePipeline:
 
 Each environment (devl, acpt, prod) has:
 - Isolated Cognito user pool
-- Isolated DynamoDB tables (Institutions and Transactions)
+- Isolated DynamoDB tables (Institutions, Transactions, and Goals)
 - Environment-specific secrets
 - Separate ECS service and task definition
 
@@ -184,39 +193,61 @@ Users must verify their email before logging in.
 
 ## Testing with Postman
 
-Import the collection and environment:
-- `CPSC_Backend_API.postman_collection.json` - API requests
+Import the collection:
+- `CPSC_Backend_API.postman_collection.json` - Complete API request collection
 
 The collection includes:
-- Automatic JWT token saving after login
-- All authentication flow requests
-- Protected endpoint examples
+- **Automatic JWT token saving**: Login response automatically saves idToken, accessToken, and refreshToken to environment variables
+- **Authentication flow**: Sign up → Confirm → Login workflow
+- **Institution management**: Create, get, edit, delete institutions
+- **Transaction management**: Create, get, update, delete transactions
+- **Goal management**: Create goals with institution allocations, get all goals
+- **Protected endpoint examples**: All endpoints use proper Bearer token authentication
+
+**Environment Variable Setup**:
+Set `baseUrl` in your Postman environment:
+- Local: `http://localhost:8080`
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/signup` - Register new user
+- `POST /api/auth/signup` - Register new user with email, password, and screen name
 - `POST /api/auth/confirm` - Confirm email with verification code
 - `POST /api/auth/resend-code` - Resend verification code
-- `POST /api/auth/login` - Login and receive JWT tokens
+- `POST /api/auth/login` - Login and receive JWT tokens (idToken, accessToken, refreshToken)
+- `GET /api/secure/profile` - Get authenticated user's profile (email, screenName) **[Requires Access Token]**
 
-### Institutions (Protected - Requires JWT)
-- `POST /api/institutions` - Create new financial institution
-- `GET /api/institutions` - Get all user's institutions
-- `DELETE /api/institutions/{id}` - Delete an institution
+**Token Usage**:
+- **ID Token** (`idToken`): Use for most protected endpoints (Institutions, Transactions, Goals). Contains user identity and is validated by the JWT filter.
+- **Access Token** (`accessToken`): Required ONLY for `/api/secure/profile` endpoint, which calls AWS Cognito's GetUser API.
+- **Refresh Token** (`refreshToken`): Used to obtain new tokens when access/ID tokens expire (not implemented yet).
 
-### Transactions (Protected - Requires JWT)
+### Institutions (Protected - Requires ID Token)
+- `POST /api/institutions` - Create new financial institution with starting balance
+- `GET /api/institutions?limit=50&lastEvaluatedKey=...` - Get all user's institutions (paginated)
+- `PATCH /api/institutions/{institutionId}` - Edit institution name, starting balance, or allocated percent
+- `DELETE /api/institutions/{institutionId}` - Delete an institution
+
+**Institution Fields**:
+- `institutionName` (string, required): Name of the institution
+- `startingBalance` (number, required): Initial balance
+- `currentBalance` (number, auto-calculated): Current balance (adjusted by transactions)
+- `allocatedPercent` (integer, 0-100): Percentage allocated to goals (default 0, max 100)
+
+### Transactions (Protected - Requires ID Token)
 - `POST /api/institutions/{institutionId}/transactions` - Create deposit or withdrawal
 - `GET /api/institutions/{institutionId}/transactions` - Get all transactions (sorted newest first)
+- `PUT /api/institutions/{institutionId}/transactions/{transactionId}` - Update a transaction
 - `DELETE /api/institutions/{institutionId}/transactions/{transactionId}` - Delete a transaction
 
-### Transaction Request Example
+**Transaction Request Example**:
 ```json
 {
   "type": "DEPOSIT",
   "amount": 1000.50,
   "tags": ["salary", "monthly"],
-  "description": "January salary deposit"
+  "description": "January salary deposit",
+  "transactionDate": 1735041600
 }
 ```
 
@@ -226,33 +257,66 @@ The collection includes:
 - Amount must be > 0 and ≤ 1,000,000,000
 - Amount cannot be NaN or Infinite
 - Type is required
-- Tags and description are optional
+- Tags, description, and transactionDate are optional
+- TransactionDate defaults to current time if not provided
+
+### Goals (Protected - Requires ID Token)
+- `POST /api/goals` - Create a new goal with linked institutions
+- `GET /api/goals` - Get all user's goals with linked institution allocations
+
+**Create Goal Request Example**:
+```json
+{
+  "name": "Emergency Fund",
+  "description": "Save 6 months of expenses",
+  "linkedInstitutions": {
+    "550e8400-e29b-41d4-a716-446655440000": 50,
+    "550e8400-e29b-41d4-a716-446655440001": 30
+  }
+}
+```
+
+**Goal Validation**:
+- Name is required (max 100 characters)
+- Description is optional (max 500 characters)
+- linkedInstitutions is a map of institution IDs to allocation percentages (0-100)
+- System validates that:
+  - All linked institutions exist and belong to the user
+  - Each institution has sufficient unallocated percentage
+  - Institution's current allocation + requested allocation ≤ 100%
 
 ### Public Endpoints
 - `GET /api/hello` - Health check endpoint
 
 ## Test Coverage
 
-The project maintains high test coverage with comprehensive unit tests:
+The project maintains comprehensive test coverage with unit tests for all layers:
 
-- **Total Tests**: 206 (all passing)
-- **Instruction Coverage**: 90%
-- **Branch Coverage**: 85%
+- **Total Tests**: 291 (all passing ✓)
+- **Test Execution Time**: ~7 seconds
 
 ### Running Tests
 ```bash
-.\.gradlew.bat test
+.\gradlew.bat test
 ```
 
 ### Generate Coverage Report
 ```bash
-.\.gradlew.bat jacocoTestReport
+.\gradlew.bat jacocoTestReport
 ```
 View report at: `build/reports/jacoco/test/html/index.html`
 
 ### Test Structure
-- **Repository Tests**: 22 tests (InstitutionRepository, TransactionRepository)
-- **Service Tests**: 92 tests (CognitoService, InstitutionService, TransactionService)
-- **Controller Tests**: 16 tests (AuthController, InstitutionController, TransactionController, TestController)
-- **Security Tests**: 35 tests (JwtValidator)
-- **Exception Handler Tests**: 28 tests (GlobalExceptionHandler)
+- **Entity Tests**: Goal, Institution, Transaction entity validation
+- **Repository Tests**: GoalRepository, InstitutionRepository, TransactionRepository with DynamoDB mocking
+- **Service Tests**: CognitoService, GoalService, InstitutionService, TransactionService with comprehensive business logic validation
+- **Controller Tests**: AuthController, GoalController, InstitutionController, TransactionController, TestController
+- **Security Tests**: JwtAuthenticationFilter, JWT token validation
+- **Exception Handler Tests**: GlobalExceptionHandler with error response mapping
+
+**Key Test Features**:
+- Full coverage of CRUD operations
+- Business logic validation (allocation limits, ownership checks)
+- Error handling and edge cases
+- DynamoDB pagination testing
+- JWT authentication flow testing

@@ -154,8 +154,8 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{idToken}}",
-                "description": "JWT token from login"
+                "value": "Bearer {{accessToken}}",
+                "description": "Access token from login (required for Cognito GetUser API)"
               }
             ],
             "url": {
@@ -169,7 +169,7 @@
                 "profile"
               ]
             },
-            "description": "Get authenticated user's profile (requires valid JWT token)"
+            "description": "Get authenticated user's profile including email and screen name. This endpoint requires the ACCESS TOKEN (not ID token) because it uses AWS Cognito's GetUser API."
           },
           "response": []
         }
@@ -266,7 +266,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"institutionName\": \"Updated Bank Name\",\n  \"startingBalance\": 1500.00\n}"
+              "raw": "{\n  \"institutionName\": \"Updated Bank Name\",\n  \"startingBalance\": 1500.00,\n  \"allocatedPercent\": 75\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/institutions/550e8400-e29b-41d4-a716-446655440000",
@@ -279,7 +279,7 @@
                 "550e8400-e29b-41d4-a716-446655440000"
               ]
             },
-            "description": "Edit an existing institution's name and/or starting balance. Both fields are optional. If startingBalance is changed, currentBalance is adjusted by the same difference. Replace the UUID in the path with the actual institutionId from Get Institutions response."
+            "description": "Edit an existing institution's name, starting balance, and/or allocated percent. All fields are optional. If startingBalance is changed, currentBalance is adjusted by the same difference. allocatedPercent shows how much of this institution's balance is allocated to goals (0-100, default 0). Replace the UUID in the path with the actual institutionId from Get Institutions response."
           },
           "response": []
         },
@@ -325,7 +325,7 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
+                "value": "Bearer {{idToken}}",
                 "description": "JWT token from login"
               }
             ],
@@ -356,7 +356,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
+                "value": "Bearer {{idToken}}",
                 "description": "JWT token from login"
               }
             ],
@@ -383,7 +383,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
+                "value": "Bearer {{idToken}}",
                 "description": "JWT token from login"
               },
               {
@@ -419,7 +419,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
+                "value": "Bearer {{idToken}}",
                 "description": "JWT token from login"
               }
             ],
@@ -437,6 +437,69 @@
               ]
             },
             "description": "Delete a specific transaction for the authenticated user. Replace the institution UUID and transaction UUID in the path with actual IDs from Get Institution Transactions response."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Goals",
+      "item": [
+        {
+          "name": "Create Goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Emergency Fund\",\n  \"description\": \"Save 6 months of expenses\",\n  \"linkedInstitutions\": {\n    \"550e8400-e29b-41d4-a716-446655440000\": 50,\n    \"550e8400-e29b-41d4-a716-446655440001\": 30\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "goals"
+              ]
+            },
+            "description": "Create a new goal with linked institutions. Each institution is allocated a percentage (0-100) of its balance toward this goal. The system validates that institutions exist, belong to the user, and have sufficient unallocated percentage. Replace institution UUIDs with actual IDs from Get Institutions response."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Goals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "goals"
+              ]
+            },
+            "description": "Get all goals for the authenticated user, including linked institutions and their allocation percentages."
           },
           "response": []
         }

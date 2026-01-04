@@ -20,6 +20,8 @@ tags:
     description: Financial institution management endpoints
   - name: Transactions
     description: Transaction management endpoints
+  - name: Goals
+    description: Financial goal management endpoints
 
 paths:
   /api/hello:
@@ -533,6 +535,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/goals:
+    post:
+      tags:
+        - Goals
+      summary: Create a new financial goal
+      description: Creates a new goal with linked institutions and validates that each institution has enough remaining percentage to allocate
+      operationId: createGoal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        '201':
+          description: Goal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+        '400':
+          description: Invalid request data or insufficient allocation percentage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: One or more institutions not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Goals
+      summary: Get all goals for the authenticated user
+      description: Returns a list of all financial goals for the logged-in user
+      operationId: getGoals
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successfully retrieved goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GoalResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -699,6 +769,12 @@ components:
           format: double
           example: 500.00
           description: Optional - New starting balance. Current balance will be adjusted by the difference.
+        allocatedPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 25
+          description: Optional - Percentage of total allocation for this institution (0-100)
     
     InstitutionResponse:
       type: object
@@ -722,6 +798,12 @@ components:
           format: double
           example: 500.75
           description: Current balance in the account (updated by transactions)
+        allocatedPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 25
+          description: Percentage of total allocation for this institution (0-100). Defaults to 0.
         createdAt:
           type: integer
           format: int64
@@ -847,3 +929,66 @@ components:
           format: int64
           example: 1735041600
           description: UNIX timestamp (seconds since epoch) when the transaction record was created in the system
+
+    CreateGoalRequest:
+      type: object
+      required:
+        - name
+        - linkedInstitutions
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Emergency Fund"
+          description: Name of the financial goal
+        description:
+          type: string
+          maxLength: 500
+          example: "Save 6 months of expenses for emergencies"
+          description: Optional description of the goal
+        linkedInstitutions:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 100
+          example:
+            "550e8400-e29b-41d4-a716-446655440000": 50
+            "660e8400-e29b-41d4-a716-446655440001": 30
+          description: Map of institution IDs to percentage allocations. Sum of percentages for each institution must not exceed 100%
+
+    GoalResponse:
+      type: object
+      properties:
+        goalId:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440000"
+          description: Unique identifier for the goal
+        name:
+          type: string
+          example: "Emergency Fund"
+          description: Name of the financial goal
+        description:
+          type: string
+          example: "Save 6 months of expenses for emergencies"
+          description: Description of the goal
+        linkedInstitutions:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            "550e8400-e29b-41d4-a716-446655440000": 50
+            "660e8400-e29b-41d4-a716-446655440001": 30
+          description: Map of institution IDs to percentage allocations
+        userId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: Cognito user ID (sub claim) of the user who owns this goal
+        createdAt:
+          type: integer
+          format: int64
+          example: 1735041600
+          description: UNIX timestamp (seconds since epoch) when the goal was created

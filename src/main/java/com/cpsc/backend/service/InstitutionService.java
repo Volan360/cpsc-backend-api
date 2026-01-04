@@ -58,6 +58,7 @@ public class InstitutionService {
             institution.setStartingBalance(request.getStartingBalance().doubleValue());
             institution.setCurrentBalance(request.getStartingBalance().doubleValue());
             institution.setCreatedAt(Instant.now().getEpochSecond());
+            institution.setAllocatedPercent(0);
 
             logger.info("Creating institution '{}' for user {} with starting balance {}", 
                 institution.getInstitutionName(), userId, institution.getStartingBalance());
@@ -237,6 +238,21 @@ public class InstitutionService {
                 updated = true;
             }
             
+            // Update allocated percent if provided
+            if (request.getAllocatedPercent() != null) {
+                int newAllocatedPercent = request.getAllocatedPercent();
+                
+                if (newAllocatedPercent < 0 || newAllocatedPercent > 100) {
+                    throw new InvalidInstitutionDataException("Allocated percent must be between 0 and 100");
+                }
+                
+                logger.debug("Updating allocated percent from {} to {}", 
+                    institution.getAllocatedPercent(), newAllocatedPercent);
+                
+                institution.setAllocatedPercent(newAllocatedPercent);
+                updated = true;
+            }
+            
             if (!updated) {
                 logger.warn("Edit request for institution {} had no changes", institutionId);
             } else {
@@ -338,6 +354,7 @@ public class InstitutionService {
             response.setCurrentBalance(institution.getCurrentBalance());
             response.setUserId(UUID.fromString(institution.getUserId()));
             response.setCreatedAt(institution.getCreatedAt());
+            response.setAllocatedPercent(institution.getAllocatedPercent() != null ? institution.getAllocatedPercent() : 0);
             return response;
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format in institution data: institutionId={}, userId={}", 
