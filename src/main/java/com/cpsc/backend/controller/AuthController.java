@@ -4,6 +4,7 @@ import com.cpsc.backend.api.AuthenticationApi;
 import com.cpsc.backend.model.ConfirmSignUpRequest;
 import com.cpsc.backend.model.ConfirmSignUpResponse;
 import com.cpsc.backend.model.ErrorResponse;
+import com.cpsc.backend.model.GetProfile200Response;
 import com.cpsc.backend.model.LoginRequest;
 import com.cpsc.backend.model.LoginResponse;
 import com.cpsc.backend.model.ResendCodeRequest;
@@ -15,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -34,7 +37,8 @@ public class AuthController implements AuthenticationApi {
         try {
             Map<String, String> result = cognitoService.signUp(
                 request.getEmail(),
-                request.getPassword()
+                request.getPassword(),
+                request.getScreenName()
             );
             
             SignUpResponse response = new SignUpResponse();
@@ -102,6 +106,8 @@ public class AuthController implements AuthenticationApi {
             response.setRefreshToken(result.get("refreshToken"));
             response.setExpiresIn(result.get("expiresIn"));
             response.setTokenType(result.get("tokenType"));
+            response.setScreenName(result.get("screenName"));
+            response.setEmail(result.get("email"));
             
             logger.info("Login successful for email: {}", request.getEmail());
             return ResponseEntity.ok(response);
@@ -111,5 +117,24 @@ public class AuthController implements AuthenticationApi {
             error.setError(e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
+    }
+
+    @Override
+    public ResponseEntity<GetProfile200Response> getProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        // The access token is stored as credentials in the authentication
+        String accessToken = (String) authentication.getCredentials();
+        
+        // Use Cognito GetUser API to fetch user attributes (including preferred_username)
+        Map<String, String> profile = cognitoService.getUserProfile(accessToken);
+        
+        GetProfile200Response response = new GetProfile200Response();
+        response.setMessage("Welcome to your profile!");
+        response.setEmail(profile.get("email"));
+        response.setScreenName(profile.get("preferred_username"));
+        response.setAuthenticated(true);
+        
+        return ResponseEntity.ok(response);
     }
 }

@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.*;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +50,7 @@ class CognitoServiceTest {
         when(cognitoClient.signUp(any(SignUpRequest.class))).thenReturn(mockResponse);
 
         // Act
-        Map<String, String> result = cognitoService.signUp("test@example.com", "Test@1234");
+        Map<String, String> result = cognitoService.signUp("test@example.com", "Test@1234", "TestUser123");
 
         // Assert
         assertThat(result).isNotNull();
@@ -66,7 +68,7 @@ class CognitoServiceTest {
                 .thenThrow(UsernameExistsException.builder().message("User exists").build());
 
         // Act & Assert
-        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "Test@1234"))
+        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "Test@1234", "TestUser123"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Username already exists");
 
@@ -80,7 +82,7 @@ class CognitoServiceTest {
                 .thenThrow(InvalidPasswordException.builder().message("Weak password").build());
 
         // Act & Assert
-        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "weak"))
+        assertThatThrownBy(() -> cognitoService.signUp("test@example.com", "weak", "TestUser123"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Invalid password. Password must meet the requirements.");
 
@@ -150,10 +152,16 @@ class CognitoServiceTest {
 
     @Test
     void login_Success() {
-        // Arrange
+        // Arrange - create a valid JWT structure (header.payload.signature)
+        // Generate the token dynamically to avoid GitGuardian false positives
+        String mockIdToken = buildMockJwt(
+            "{\"alg\":\"HS256\",\"typ\":\"JWT\"}",
+            "{\"email\":\"test@example.com\",\"preferred_username\":\"TestUser123\"}"
+        );
+        
         AuthenticationResultType authResult = AuthenticationResultType.builder()
                 .accessToken("access-token")
-                .idToken("id-token")
+                .idToken(mockIdToken)
                 .refreshToken("refresh-token")
                 .expiresIn(3600)
                 .tokenType("Bearer")
@@ -171,10 +179,12 @@ class CognitoServiceTest {
         // Assert
         assertThat(result).isNotNull();
         assertThat(result.get("accessToken")).isEqualTo("access-token");
-        assertThat(result.get("idToken")).isEqualTo("id-token");
+        assertThat(result.get("idToken")).isEqualTo(mockIdToken);
         assertThat(result.get("refreshToken")).isEqualTo("refresh-token");
         assertThat(result.get("expiresIn")).isEqualTo("3600");
         assertThat(result.get("tokenType")).isEqualTo("Bearer");
+        assertThat(result.get("screenName")).isEqualTo("TestUser123");
+        assertThat(result.get("email")).isEqualTo("test@example.com");
 
         verify(cognitoClient).initiateAuth(any(InitiateAuthRequest.class));
     }
@@ -205,5 +215,60 @@ class CognitoServiceTest {
                 .hasMessage("User is not confirmed. Please verify your email.");
 
         verify(cognitoClient).initiateAuth(any(InitiateAuthRequest.class));
+    }
+
+    @Test
+    void getUserProfile_Success() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        GetUserResponse getUserResponse = GetUserResponse.builder()
+                .username("04b8b408-3011-70f9-5a38-7a897cf03438")
+                .userAttributes(
+                        AttributeType.builder().name("email").value("test@example.com").build(),
+                        AttributeType.builder().name("preferred_username").value("TestUser123").build(),
+                        AttributeType.builder().name("sub").value("04b8b408-3011-70f9-5a38-7a897cf03438").build()
+                )
+                .build();
+
+        when(cognitoClient.getUser(any(GetUserRequest.class))).thenReturn(getUserResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.getUserProfile(accessToken);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("username")).isEqualTo("04b8b408-3011-70f9-5a38-7a897cf03438");
+        assertThat(result.get("email")).isEqualTo("test@example.com");
+        assertThat(result.get("preferred_username")).isEqualTo("TestUser123");
+        assertThat(result.get("sub")).isEqualTo("04b8b408-3011-70f9-5a38-7a897cf03438");
+
+        verify(cognitoClient).getUser(any(GetUserRequest.class));
+    }
+
+    @Test
+    void getUserProfile_InvalidToken_ThrowsException() {
+        // Arrange
+        String invalidToken = "invalid-token";
+        when(cognitoClient.getUser(any(GetUserRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder().message("Invalid token").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.getUserProfile(invalidToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error getting user profile");
+
+        verify(cognitoClient).getUser(any(GetUserRequest.class));
+    }
+
+    /**
+     * Helper method to build a mock JWT token dynamically.
+     * This avoids hardcoding tokens that trigger secret detection tools.
+     */
+    private String buildMockJwt(String header, String payload) {
+        String encodedHeader = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(header.getBytes(StandardCharsets.UTF_8));
+        String encodedPayload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        return encodedHeader + "." + encodedPayload + ".mock_signature";
     }
 }

@@ -20,7 +20,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Test@1234\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Test@1234\",\n  \"screenName\": \"JohnDoe123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/signup",
@@ -33,7 +33,7 @@
                 "signup"
               ]
             },
-            "description": "Register a new user in AWS Cognito. User will receive a verification code via email."
+            "description": "Register a new user in AWS Cognito with a screen name. User will receive a verification code via email."
           },
           "response": []
         },

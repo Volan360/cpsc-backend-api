@@ -96,4 +96,30 @@ public class JwtValidator {
         
         return sub;
     }
+
+    /**
+     * Extract the screen name (preferred_username claim) from a validated token
+     * @param decodedJWT The validated JWT token
+     * @return The screen name or null if not present
+     */
+    public String getScreenName(DecodedJWT decodedJWT) {
+        if (decodedJWT == null) {
+            return null;
+        }
+        
+        return decodedJWT.getClaim("preferred_username").asString();
+    }
+
+    /**
+     * Extract the email from a validated token
+     * @param decodedJWT The validated JWT token
+     * @return The email or null if not present
+     */
+    public String getEmail(DecodedJWT decodedJWT) {
+        if (decodedJWT == null) {
+            return null;
+        }
+        
+        return decodedJWT.getClaim("email").asString();
+    }
 }
