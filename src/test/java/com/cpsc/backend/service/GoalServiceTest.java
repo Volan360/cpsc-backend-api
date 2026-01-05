@@ -4,6 +4,7 @@ import com.cpsc.backend.entity.Goal;
 import com.cpsc.backend.entity.Institution;
 import com.cpsc.backend.exception.InvalidInstitutionDataException;
 import com.cpsc.backend.model.CreateGoalRequest;
+import com.cpsc.backend.model.EditGoalRequest;
 import com.cpsc.backend.model.GoalResponse;
 import com.cpsc.backend.repository.GoalRepository;
 import com.cpsc.backend.repository.InstitutionRepository;
@@ -14,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ class GoalServiceTest {
         validRequest = new CreateGoalRequest();
         validRequest.setName("Emergency Fund");
         validRequest.setDescription("Save 6 months of expenses");
+        validRequest.setTargetAmount(10000.00);
         Map<String, Integer> linkedInstitutions = new HashMap<>();
         linkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
         validRequest.setLinkedInstitutions(linkedInstitutions);
@@ -312,5 +315,319 @@ class GoalServiceTest {
         
         goal.setCreatedAt(System.currentTimeMillis() / 1000L);
         return goal;
+    }
+
+    @Test
+    void editGoal_RemoveInstitution_UpdatesInstitutionAllocationAndLinkedGoals() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        
+        // Create existing goal with two institutions
+        Goal existingGoal = new Goal();
+        existingGoal.setUserId(userId);
+        existingGoal.setGoalId(goalId);
+        existingGoal.setName("Original Goal");
+        existingGoal.setTargetAmount(10000.0);
+        Map<String, Integer> oldLinkedInstitutions = new HashMap<>();
+        oldLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        oldLinkedInstitutions.put("660e8400-e29b-41d4-a716-446655440000", 30);
+        existingGoal.setLinkedInstitutions(oldLinkedInstitutions);
+        
+        // Create institutions
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 50);
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        
+        Institution inst2 = createInstitution("660e8400-e29b-41d4-a716-446655440000", 30);
+        inst2.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        inst2.setCurrentBalance(2000.0);
+        
+        // Edit request removes inst-2
+        EditGoalRequest editRequest = new EditGoalRequest();
+        Map<String, Integer> newLinkedInstitutions = new HashMap<>();
+        newLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        editRequest.setLinkedInstitutions(newLinkedInstitutions);
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(existingGoal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "660e8400-e29b-41d4-a716-446655440000")).thenReturn(inst2);
+        
+        // Act
+        goalService.editGoal(userId, goalId, editRequest);
+        
+        // Assert - inst-2 should have allocation reduced and goal removed
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository, atLeastOnce()).save(institutionCaptor.capture());
+        
+        List<Institution> savedInstitutions = institutionCaptor.getAllValues();
+        Institution savedInst2 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("660e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        
+        assertThat(savedInst2).isNotNull();
+        assertThat(savedInst2.getAllocatedPercent()).isEqualTo(0); // 30 - 30 = 0
+        assertThat(savedInst2.getLinkedGoals()).doesNotContain(goalId);
+    }
+
+    @Test
+    void editGoal_AddInstitution_UpdatesInstitutionAllocationAndLinkedGoals() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        
+        // Create existing goal with one institution
+        Goal existingGoal = new Goal();
+        existingGoal.setUserId(userId);
+        existingGoal.setGoalId(goalId);
+        existingGoal.setName("Original Goal");
+        existingGoal.setTargetAmount(10000.0);
+        Map<String, Integer> oldLinkedInstitutions = new HashMap<>();
+        oldLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        existingGoal.setLinkedInstitutions(oldLinkedInstitutions);
+        
+        // Create institutions
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 50);
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        
+        Institution inst2 = createInstitution("660e8400-e29b-41d4-a716-446655440000", 20); // Already has 20% from another goal
+        inst2.setLinkedGoals(new ArrayList<>(List.of("880e8400-e29b-41d4-a716-446655440000")));
+        inst2.setCurrentBalance(2000.0);
+        
+        // Edit request adds inst-2
+        EditGoalRequest editRequest = new EditGoalRequest();
+        Map<String, Integer> newLinkedInstitutions = new HashMap<>();
+        newLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        newLinkedInstitutions.put("660e8400-e29b-41d4-a716-446655440000", 30);
+        editRequest.setLinkedInstitutions(newLinkedInstitutions);
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(existingGoal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "660e8400-e29b-41d4-a716-446655440000")).thenReturn(inst2);
+        
+        // Act
+        goalService.editGoal(userId, goalId, editRequest);
+        
+        // Assert - inst-2 should have allocation increased and goal added
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository, atLeastOnce()).save(institutionCaptor.capture());
+        
+        List<Institution> savedInstitutions = institutionCaptor.getAllValues();
+        Institution savedInst2 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("660e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        
+        assertThat(savedInst2).isNotNull();
+        assertThat(savedInst2.getAllocatedPercent()).isEqualTo(50); // 20 + 30 = 50
+        assertThat(savedInst2.getLinkedGoals()).contains(goalId);
+    }
+
+    @Test
+    void editGoal_ChangeInstitutionPercentage_UpdatesInstitutionAllocation() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        
+        // Create existing goal
+        Goal existingGoal = new Goal();
+        existingGoal.setUserId(userId);
+        existingGoal.setGoalId(goalId);
+        existingGoal.setName("Original Goal");
+        existingGoal.setTargetAmount(10000.0);
+        Map<String, Integer> oldLinkedInstitutions = new HashMap<>();
+        oldLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        existingGoal.setLinkedInstitutions(oldLinkedInstitutions);
+        
+        // Create institution
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 60); // 50 from this goal + 10 from another goal
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId, "880e8400-e29b-41d4-a716-446655440000")));
+        
+        // Edit request changes inst-1 from 50% to 75%
+        EditGoalRequest editRequest = new EditGoalRequest();
+        Map<String, Integer> newLinkedInstitutions = new HashMap<>();
+        newLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 75);
+        editRequest.setLinkedInstitutions(newLinkedInstitutions);
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(existingGoal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        
+        // Act
+        goalService.editGoal(userId, goalId, editRequest);
+        
+        // Assert - inst-1 should have allocation increased by 25 (75 - 50)
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository, atLeastOnce()).save(institutionCaptor.capture());
+        
+        List<Institution> savedInstitutions = institutionCaptor.getAllValues();
+        Institution savedInst1 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("550e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        
+        assertThat(savedInst1).isNotNull();
+        assertThat(savedInst1.getAllocatedPercent()).isEqualTo(85); // 60 + 25 = 85
+        assertThat(savedInst1.getLinkedGoals()).contains(goalId);
+    }
+
+    @Test
+    void editGoal_ReplaceAllInstitutions_UpdatesBothOldAndNewInstitutions() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        
+        // Create existing goal with inst-1
+        Goal existingGoal = new Goal();
+        existingGoal.setUserId(userId);
+        existingGoal.setGoalId(goalId);
+        existingGoal.setName("Original Goal");
+        existingGoal.setTargetAmount(10000.0);
+        Map<String, Integer> oldLinkedInstitutions = new HashMap<>();
+        oldLinkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        existingGoal.setLinkedInstitutions(oldLinkedInstitutions);
+        
+        // Create institutions
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 50);
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        
+        Institution inst2 = createInstitution("660e8400-e29b-41d4-a716-446655440000", 0);
+        inst2.setLinkedGoals(new ArrayList<>());
+        inst2.setCurrentBalance(2000.0);
+        
+        // Edit request completely replaces inst-1 with inst-2
+        EditGoalRequest editRequest = new EditGoalRequest();
+        Map<String, Integer> newLinkedInstitutions = new HashMap<>();
+        newLinkedInstitutions.put("660e8400-e29b-41d4-a716-446655440000", 60);
+        editRequest.setLinkedInstitutions(newLinkedInstitutions);
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(existingGoal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "660e8400-e29b-41d4-a716-446655440000")).thenReturn(inst2);
+        
+        // Act
+        goalService.editGoal(userId, goalId, editRequest);
+        
+        // Assert - both institutions should be updated
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository, atLeastOnce()).save(institutionCaptor.capture());
+        
+        List<Institution> savedInstitutions = institutionCaptor.getAllValues();
+        
+        // inst-1 should have allocation removed and goal removed
+        Institution savedInst1 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("550e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        assertThat(savedInst1).isNotNull();
+        assertThat(savedInst1.getAllocatedPercent()).isEqualTo(0);
+        assertThat(savedInst1.getLinkedGoals()).doesNotContain(goalId);
+        
+        // inst-2 should have allocation added and goal added
+        Institution savedInst2 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("660e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        assertThat(savedInst2).isNotNull();
+        assertThat(savedInst2.getAllocatedPercent()).isEqualTo(60);
+        assertThat(savedInst2.getLinkedGoals()).contains(goalId);
+    }
+
+    @Test
+    void deleteGoal_UpdatesAllLinkedInstitutions() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        
+        // Create goal with two institutions
+        Goal goal = new Goal();
+        goal.setUserId(userId);
+        goal.setGoalId(goalId);
+        goal.setName("Test Goal");
+        goal.setTargetAmount(10000.0);
+        Map<String, Integer> linkedInstitutions = new HashMap<>();
+        linkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 50);
+        linkedInstitutions.put("660e8400-e29b-41d4-a716-446655440000", 30);
+        goal.setLinkedInstitutions(linkedInstitutions);
+        
+        // Create institutions
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 50);
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        
+        Institution inst2 = createInstitution("660e8400-e29b-41d4-a716-446655440000", 30);
+        inst2.setLinkedGoals(new ArrayList<>(List.of(goalId)));
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(goal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "660e8400-e29b-41d4-a716-446655440000")).thenReturn(inst2);
+        
+        // Act
+        goalService.deleteGoal(userId, goalId);
+        
+        // Assert - both institutions should have allocations reduced and goal removed
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository, times(2)).save(institutionCaptor.capture());
+        
+        List<Institution> savedInstitutions = institutionCaptor.getAllValues();
+        
+        // inst1 should have allocation reduced to 0 and goal removed
+        Institution savedInst1 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("550e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        assertThat(savedInst1).isNotNull();
+        assertThat(savedInst1.getAllocatedPercent()).isEqualTo(0); // 50 - 50 = 0
+        assertThat(savedInst1.getLinkedGoals()).doesNotContain(goalId);
+        
+        // inst2 should have allocation reduced to 0 and goal removed
+        Institution savedInst2 = savedInstitutions.stream()
+            .filter(i -> i.getInstitutionId().equals("660e8400-e29b-41d4-a716-446655440000"))
+            .findFirst()
+            .orElse(null);
+        assertThat(savedInst2).isNotNull();
+        assertThat(savedInst2.getAllocatedPercent()).isEqualTo(0); // 30 - 30 = 0
+        assertThat(savedInst2.getLinkedGoals()).doesNotContain(goalId);
+        
+        // Verify goal was deleted
+        verify(goalRepository).delete(userId, goalId);
+    }
+
+    @Test
+    void deleteGoal_WithMultipleGoals_OnlyReducesDeletedGoalAllocation() {
+        // Arrange
+        String userId = "3c925d70-6d8d-4e59-9d2c-2d86a5f0bf28";
+        String goalId = "770e8400-e29b-41d4-a716-446655440000";
+        String otherGoalId = "880e8400-e29b-41d4-a716-446655440000";
+        
+        // Create goal being deleted
+        Goal goal = new Goal();
+        goal.setUserId(userId);
+        goal.setGoalId(goalId);
+        goal.setName("Test Goal");
+        goal.setTargetAmount(10000.0);
+        Map<String, Integer> linkedInstitutions = new HashMap<>();
+        linkedInstitutions.put("550e8400-e29b-41d4-a716-446655440000", 40);
+        goal.setLinkedInstitutions(linkedInstitutions);
+        
+        // Create institution with 70% allocated (40% to this goal, 30% to another)
+        Institution inst1 = createInstitution("550e8400-e29b-41d4-a716-446655440000", 70);
+        inst1.setLinkedGoals(new ArrayList<>(List.of(goalId, otherGoalId)));
+        
+        when(goalRepository.findByUserIdAndGoalId(userId, goalId)).thenReturn(goal);
+        when(institutionRepository.findByUserIdAndInstitutionId(userId, "550e8400-e29b-41d4-a716-446655440000")).thenReturn(inst1);
+        
+        // Act
+        goalService.deleteGoal(userId, goalId);
+        
+        // Assert - institution should have allocation reduced by 40 (70 - 40 = 30)
+        ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+        verify(institutionRepository).save(institutionCaptor.capture());
+        
+        Institution savedInst = institutionCaptor.getValue();
+        assertThat(savedInst.getAllocatedPercent()).isEqualTo(30); // 70 - 40 = 30
+        assertThat(savedInst.getLinkedGoals()).doesNotContain(goalId);
+        assertThat(savedInst.getLinkedGoals()).contains(otherGoalId); // Other goal still linked
+        
+        // Verify goal was deleted
+        verify(goalRepository).delete(userId, goalId);
     }
 }

@@ -34,11 +34,15 @@ public class InstitutionService {
     
     private final InstitutionRepository institutionRepository;
     private final TransactionRepository transactionRepository;
+    private final GoalService goalService;
     private final ObjectMapper objectMapper;
 
-    public InstitutionService(InstitutionRepository institutionRepository, TransactionRepository transactionRepository) {
+    public InstitutionService(InstitutionRepository institutionRepository, 
+                             TransactionRepository transactionRepository,
+                             GoalService goalService) {
         this.institutionRepository = institutionRepository;
         this.transactionRepository = transactionRepository;
+        this.goalService = goalService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -258,6 +262,9 @@ public class InstitutionService {
             } else {
                 institutionRepository.save(institution);
                 logger.info("Successfully edited institution {} for user {}", institutionId, userId);
+                
+                // Update goal completion status for all linked goals
+                goalService.updateGoalCompletionForInstitution(userId, institutionId, institution);
             }
             
             return mapToResponse(institution);
@@ -280,6 +287,7 @@ public class InstitutionService {
     /**
      * Delete an institution for a user
      * This will cascade delete all transactions associated with the institution
+     * and remove the institution from all linked goals
      */
     public void deleteInstitution(String userId, String institutionId) {
         if (userId == null || userId.trim().isEmpty()) {
@@ -294,7 +302,19 @@ public class InstitutionService {
             logger.info("Deleting institution {} for user {}", institutionId, userId);
             
             // First verify the institution exists and belongs to the user
-            institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+            Institution institution = institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+            
+            if (institution == null) {
+                throw new com.cpsc.backend.exception.InstitutionNotFoundException(
+                    "Institution not found with ID: " + institutionId);
+            }
+            
+            // Remove institution from all linked goals
+            if (institution.getLinkedGoals() != null && !institution.getLinkedGoals().isEmpty()) {
+                logger.info("Removing institution {} from {} linked goals", 
+                    institutionId, institution.getLinkedGoals().size());
+                goalService.removeInstitutionFromGoals(userId, institutionId, institution);
+            }
             
             // Bulk delete all transactions associated with this institution
             transactionRepository.deleteAllByInstitutionId(institutionId);
@@ -302,7 +322,8 @@ public class InstitutionService {
             // Then delete the institution itself
             institutionRepository.delete(userId, institutionId);
             
-            logger.info("Successfully deleted institution {} and all associated transactions for user {}", institutionId, userId);
+            logger.info("Successfully deleted institution {} and all associated transactions for user {}", 
+                institutionId, userId);
             
         } catch (DynamoDbException e) {
             logger.error("DynamoDB error while deleting institution {} for user {}: {}", 
@@ -355,6 +376,15 @@ public class InstitutionService {
             response.setUserId(UUID.fromString(institution.getUserId()));
             response.setCreatedAt(institution.getCreatedAt());
             response.setAllocatedPercent(institution.getAllocatedPercent() != null ? institution.getAllocatedPercent() : 0);
+            
+            // Map linkedGoals to list of UUIDs
+            if (institution.getLinkedGoals() != null && !institution.getLinkedGoals().isEmpty()) {
+                List<UUID> linkedGoalsUUIDs = institution.getLinkedGoals().stream()
+                    .map(UUID::fromString)
+                    .collect(Collectors.toList());
+                response.setLinkedGoals(linkedGoalsUUIDs);
+            }
+            
             return response;
         } catch (IllegalArgumentException e) {
             logger.error("Invalid UUID format in institution data: institutionId={}, userId={}", 

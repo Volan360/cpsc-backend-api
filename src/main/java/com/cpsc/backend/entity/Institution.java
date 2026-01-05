@@ -4,6 +4,8 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
+import java.util.List;
+
 @DynamoDbBean
 public class Institution {
 
@@ -14,6 +16,7 @@ public class Institution {
     private Double currentBalance;
     private Long createdAt;
     private Integer allocatedPercent;
+    private List<String> linkedGoals;
 
     public Institution() {
     }
@@ -74,5 +77,13 @@ public class Institution {
 
     public void setAllocatedPercent(Integer allocatedPercent) {
         this.allocatedPercent = allocatedPercent;
+    }
+
+    public List<String> getLinkedGoals() {
+        return linkedGoals;
+    }
+
+    public void setLinkedGoals(List<String> linkedGoals) {
+        this.linkedGoals = linkedGoals;
     }
 }

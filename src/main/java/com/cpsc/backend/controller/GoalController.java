@@ -2,6 +2,7 @@ package com.cpsc.backend.controller;
 
 import com.cpsc.backend.api.GoalsApi;
 import com.cpsc.backend.model.CreateGoalRequest;
+import com.cpsc.backend.model.EditGoalRequest;
 import com.cpsc.backend.model.GetGoals200Response;
 import com.cpsc.backend.model.GoalResponse;
 import com.cpsc.backend.service.GoalService;
@@ -14,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 public class GoalController implements GoalsApi {
@@ -48,6 +50,26 @@ public class GoalController implements GoalsApi {
         response.setGoals(goals);
         
         return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<GoalResponse> editGoal(UUID goalId, EditGoalRequest editGoalRequest) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to edit goal {} from user {}", goalId, userId);
+        
+        GoalResponse response = goalService.editGoal(userId, goalId.toString(), editGoalRequest);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteGoal(UUID goalId) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to delete goal {} from user {}", goalId, userId);
+        
+        goalService.deleteGoal(userId, goalId.toString());
+        return ResponseEntity.noContent().build();
     }
 
     private String getAuthenticatedUserId() {

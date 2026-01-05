@@ -36,6 +36,9 @@ class TransactionServiceTest {
 
     @Mock
     private InstitutionRepository institutionRepository;
+    
+    @Mock
+    private GoalService goalService;
 
     @InjectMocks
     private TransactionService transactionService;

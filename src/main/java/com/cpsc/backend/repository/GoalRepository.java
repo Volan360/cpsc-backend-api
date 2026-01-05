@@ -95,6 +95,24 @@ public class GoalRepository {
         goalTable.deleteItem(goal);
     }
 
+    public void delete(String userId, String goalId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        if (goalId == null || goalId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Goal ID cannot be null or empty");
+        }
+        
+        logger.debug("Deleting goal: userId={}, goalId={}", userId, goalId);
+        
+        Key key = Key.builder()
+            .partitionValue(userId)
+            .sortValue(goalId)
+            .build();
+        
+        goalTable.deleteItem(key);
+    }
+
     private void validateGoal(Goal goal) {
         if (goal.getUserId() == null || goal.getUserId().trim().isEmpty()) {
             throw new IllegalArgumentException("User ID cannot be null or empty");

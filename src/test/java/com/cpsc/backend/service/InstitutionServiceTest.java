@@ -43,6 +43,9 @@ class InstitutionServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+    
+    @Mock
+    private GoalService goalService;
 
     private InstitutionService institutionService;
 
@@ -50,7 +53,7 @@ class InstitutionServiceTest {
 
     @BeforeEach
     void setUp() {
-        institutionService = new InstitutionService(institutionRepository, transactionRepository);
+        institutionService = new InstitutionService(institutionRepository, transactionRepository, goalService);
         validRequest = new CreateInstitutionRequest();
         validRequest.setInstitutionName("Test Bank");
         validRequest.setStartingBalance(1000.0);
