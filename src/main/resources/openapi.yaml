@@ -603,6 +603,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/goals/{goalId}:
+    patch:
+      tags:
+        - Goals
+      summary: Edit an existing goal
+      description: Updates goal properties including name, description, targetAmount, and linkedInstitutions. Automatically recalculates completion status.
+      operationId: editGoal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the goal to edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditGoalRequest'
+      responses:
+        '200':
+          description: Goal updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+        '400':
+          description: Invalid request data or insufficient allocation percentage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Goal or institution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Goals
+      summary: Delete a goal
+      description: Deletes a goal and automatically updates all linked institutions by reducing their allocatedPercent and removing the goal from their linkedGoals lists.
+      operationId: deleteGoal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the goal to delete
+      responses:
+        '204':
+          description: Goal deleted successfully
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Goal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -804,6 +885,13 @@ components:
           maximum: 100
           example: 25
           description: Percentage of total allocation for this institution (0-100). Defaults to 0.
+        linkedGoals:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["770e8400-e29b-41d4-a716-446655440000", "880e8400-e29b-41d4-a716-446655440000"]
+          description: List of goal IDs that are linked to this institution
         createdAt:
           type: integer
           format: int64
@@ -934,6 +1022,7 @@ components:
       type: object
       required:
         - name
+        - targetAmount
         - linkedInstitutions
       properties:
         name:
@@ -947,6 +1036,12 @@ components:
           maxLength: 500
           example: "Save 6 months of expenses for emergencies"
           description: Optional description of the goal
+        targetAmount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 10000.00
+          description: Target amount to save for this goal
         linkedInstitutions:
           type: object
           additionalProperties:
@@ -957,6 +1052,37 @@ components:
             "550e8400-e29b-41d4-a716-446655440000": 50
             "660e8400-e29b-41d4-a716-446655440001": 30
           description: Map of institution IDs to percentage allocations. Sum of percentages for each institution must not exceed 100%
+
+    EditGoalRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Emergency Fund"
+          description: Updated name of the financial goal
+        description:
+          type: string
+          maxLength: 500
+          example: "Save 6 months of expenses for emergencies"
+          description: Updated description of the goal
+        targetAmount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 15000.00
+          description: Updated target amount to save for this goal
+        linkedInstitutions:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+            maximum: 100
+          example:
+            "550e8400-e29b-41d4-a716-446655440000": 60
+            "660e8400-e29b-41d4-a716-446655440001": 40
+          description: Updated map of institution IDs to percentage allocations. Replaces existing allocations completely.
 
     GoalResponse:
       type: object
@@ -982,6 +1108,15 @@ components:
             "550e8400-e29b-41d4-a716-446655440000": 50
             "660e8400-e29b-41d4-a716-446655440001": 30
           description: Map of institution IDs to percentage allocations
+        targetAmount:
+          type: number
+          format: double
+          example: 10000.00
+          description: Target amount to save for this goal
+        isCompleted:
+          type: boolean
+          example: false
+          description: Whether the goal has been completed (allocated amounts >= target amount)
         userId:
           type: string
           format: uuid

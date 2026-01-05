@@ -26,10 +26,14 @@ public class TransactionService {
     
     private final TransactionRepository transactionRepository;
     private final InstitutionRepository institutionRepository;
+    private final GoalService goalService;
 
-    public TransactionService(TransactionRepository transactionRepository, InstitutionRepository institutionRepository) {
+    public TransactionService(TransactionRepository transactionRepository, 
+                             InstitutionRepository institutionRepository,
+                             GoalService goalService) {
         this.transactionRepository = transactionRepository;
         this.institutionRepository = institutionRepository;
+        this.goalService = goalService;
     }
 
     public TransactionResponse createTransaction(String userId, String institutionId, CreateTransactionRequest request) {
@@ -320,6 +324,10 @@ public class TransactionService {
             institution.getInstitutionId(), currentBalance, newBalance, transactionType, amount, isReverse);
         
         institutionRepository.save(institution);
+        
+        // Update goal completion status for all linked goals
+        goalService.updateGoalCompletionForInstitution(institution.getUserId(), 
+            institution.getInstitutionId(), institution);
     }
     
     private void validateTransactionRequest(CreateTransactionRequest request) {

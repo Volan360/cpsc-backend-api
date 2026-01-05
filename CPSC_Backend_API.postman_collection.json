@@ -462,7 +462,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Emergency Fund\",\n  \"description\": \"Save 6 months of expenses\",\n  \"linkedInstitutions\": {\n    \"550e8400-e29b-41d4-a716-446655440000\": 50,\n    \"550e8400-e29b-41d4-a716-446655440001\": 30\n  }\n}"
+              "raw": "{\n  \"name\": \"Emergency Fund\",\n  \"description\": \"Save 6 months of expenses\",\n  \"targetAmount\": 10000.00,\n  \"linkedInstitutions\": {\n    \"550e8400-e29b-41d4-a716-446655440000\": 50,\n    \"550e8400-e29b-41d4-a716-446655440001\": 30\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/goals",
@@ -474,7 +474,7 @@
                 "goals"
               ]
             },
-            "description": "Create a new goal with linked institutions. Each institution is allocated a percentage (0-100) of its balance toward this goal. The system validates that institutions exist, belong to the user, and have sufficient unallocated percentage. Replace institution UUIDs with actual IDs from Get Institutions response."
+            "description": "Create a new goal with linked institutions and a target amount. The 'isCompleted' field is automatically calculated based on allocated amounts from linked institutions. When institution balances change (via edits or transactions), the goal completion status is automatically recalculated. Replace institution UUIDs with actual IDs from Get Institutions response."
           },
           "response": []
         },
@@ -500,6 +500,80 @@
               ]
             },
             "description": "Get all goals for the authenticated user, including linked institutions and their allocation percentages."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Goal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Emergency Fund - Updated\",\n  \"description\": \"Save 12 months of expenses\",\n  \"targetAmount\": 20000.00,\n  \"linkedInstitutions\": {\n    \"550e8400-e29b-41d4-a716-446655440000\": 75,\n    \"550e8400-e29b-41d4-a716-446655440001\": 25\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/goals/:goalId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "goals",
+                ":goalId"
+              ],
+              "variable": [
+                {
+                  "key": "goalId",
+                  "value": "replace-with-actual-goal-id",
+                  "description": "UUID of the goal to edit"
+                }
+              ]
+            },
+            "description": "Edit an existing goal. All fields are optional - only provided fields will be updated. When linkedInstitutions is updated, the system automatically adjusts institution allocations and recalculates completion status. Replace goalId with actual UUID from Get Goals response."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Goal",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/goals/:goalId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "goals",
+                ":goalId"
+              ],
+              "variable": [
+                {
+                  "key": "goalId",
+                  "value": "replace-with-actual-goal-id",
+                  "description": "UUID of the goal to delete"
+                }
+              ]
+            },
+            "description": "Delete a goal and automatically update all linked institutions. The system reduces each institution's allocatedPercent by the amount allocated to this goal and removes the goal from their linkedGoals lists. Replace goalId with actual UUID from Get Goals response."
           },
           "response": []
         }

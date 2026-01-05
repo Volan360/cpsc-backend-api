@@ -263,27 +263,54 @@ Set `baseUrl` in your Postman environment:
 ### Goals (Protected - Requires ID Token)
 - `POST /api/goals` - Create a new goal with linked institutions
 - `GET /api/goals` - Get all user's goals with linked institution allocations
+- `PATCH /api/goals/{goalId}` - Edit an existing goal (name, description, targetAmount, linkedInstitutions)
+- `DELETE /api/goals/{goalId}` - Delete a goal and update all linked institutions
 
 **Create Goal Request Example**:
 ```json
 {
   "name": "Emergency Fund",
   "description": "Save 6 months of expenses",
+  "targetAmount": 10000.00,
   "linkedInstitutions": {
     "550e8400-e29b-41d4-a716-446655440000": 50,
     "550e8400-e29b-41d4-a716-446655440001": 30
   }
 }
 ```
+**Goal Fields**:
+- `name` (string, required on create): Goal name (max 100 characters)
+- `description` (string, optional): Goal description (max 500 characters)
+- `targetAmount` (number, required on create): Total amount to save (must be > 0)
+- `linkedInstitutions` (map, required on create): Institution IDs mapped to allocation percentages (0-100)
+- `isCompleted` (boolean, auto-calculated): Whether the goal has been met
+- `linkedGoals` (array, institution field): List of goal IDs linked to each institution
+
+**Goal Completion Calculation**:
+- `isCompleted` is automatically calculated when a goal is created or when linked institution balances change
+- Calculation: Sum of (institutionBalance × allocationPercent ÷ 100) ≥ targetAmount
+- Updates automatically when:
+  - Institution balance is edited directly
+  - Transactions change institution balance
+  - Goal is edited (recalculates based on new linkedInstitutions or targetAmount)
 
 **Goal Validation**:
-- Name is required (max 100 characters)
+- Name is required on create (max 100 characters)
 - Description is optional (max 500 characters)
+- targetAmount is required on create (must be > 0)
 - linkedInstitutions is a map of institution IDs to allocation percentages (0-100)
 - System validates that:
   - All linked institutions exist and belong to the user
   - Each institution has sufficient unallocated percentage
   - Institution's current allocation + requested allocation ≤ 100%
+
+**Cascade Behavior**:
+- Deleting an institution automatically removes it from all linked goals
+- Goal completion status is recalculated after institution removal
+- If a goal has no remaining linked institutions, `isCompleted` is set to false
+- **Deleting a goal** automatically:
+  - Reduces each linked institution's `allocatedPercent` by the amount allocated to the goal
+  - Removes the goal ID from each linked institution's `linkedGoals` list
 
 ### Public Endpoints
 - `GET /api/hello` - Health check endpoint

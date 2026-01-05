@@ -14,6 +14,8 @@ public class Goal {
     private String name;
     private String description;
     private Map<String, Integer> linkedInstitutions;
+    private Double targetAmount;
+    private Boolean isCompleted;
     private Long createdAt;
 
     public Goal() {
@@ -59,6 +61,22 @@ public class Goal {
 
     public void setLinkedInstitutions(Map<String, Integer> linkedInstitutions) {
         this.linkedInstitutions = linkedInstitutions;
+    }
+
+    public Double getTargetAmount() {
+        return targetAmount;
+    }
+
+    public void setTargetAmount(Double targetAmount) {
+        this.targetAmount = targetAmount;
+    }
+
+    public Boolean getIsCompleted() {
+        return isCompleted;
+    }
+
+    public void setIsCompleted(Boolean isCompleted) {
+        this.isCompleted = isCompleted;
     }
 
     public Long getCreatedAt() {
