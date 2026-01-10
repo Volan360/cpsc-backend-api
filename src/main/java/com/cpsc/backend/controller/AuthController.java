@@ -1,9 +1,13 @@
 package com.cpsc.backend.controller;
 
 import com.cpsc.backend.api.AuthenticationApi;
+import com.cpsc.backend.model.ConfirmForgotPasswordRequest;
+import com.cpsc.backend.model.ConfirmForgotPasswordResponse;
 import com.cpsc.backend.model.ConfirmSignUpRequest;
 import com.cpsc.backend.model.ConfirmSignUpResponse;
 import com.cpsc.backend.model.ErrorResponse;
+import com.cpsc.backend.model.ForgotPasswordRequest;
+import com.cpsc.backend.model.ForgotPasswordResponse;
 import com.cpsc.backend.model.GetProfile200Response;
 import com.cpsc.backend.model.LoginRequest;
 import com.cpsc.backend.model.LoginResponse;
@@ -85,6 +89,50 @@ public class AuthController implements AuthenticationApi {
             
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(ForgotPasswordRequest request) {
+        logger.info("Forgot password request received for email: {}", request.getEmail());
+        try {
+            Map<String, String> result = cognitoService.forgotPassword(request.getEmail());
+            
+            ForgotPasswordResponse response = new ForgotPasswordResponse();
+            response.setMessage(result.get("message"));
+            response.setDeliveryMedium(result.get("deliveryMedium"));
+            response.setDestination(result.get("destination"));
+            
+            logger.info("Password reset code sent for email: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Forgot password failed for email: {}, error: {}", request.getEmail(), e.getMessage());
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ConfirmForgotPasswordResponse> confirmForgotPassword(ConfirmForgotPasswordRequest request) {
+        logger.info("Confirm forgot password request received for email: {}", request.getEmail());
+        try {
+            Map<String, String> result = cognitoService.confirmForgotPassword(
+                request.getEmail(),
+                request.getConfirmationCode(),
+                request.getNewPassword()
+            );
+            
+            ConfirmForgotPasswordResponse response = new ConfirmForgotPasswordResponse();
+            response.setMessage(result.get("message"));
+            
+            logger.info("Password reset successful for email: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Confirm forgot password failed for email: {}, error: {}", request.getEmail(), e.getMessage());
             ErrorResponse error = new ErrorResponse();
             error.setError(e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);

@@ -39,6 +39,8 @@ class AuthControllerTest {
     private LoginRequest loginRequest;
     private ConfirmSignUpRequest confirmRequest;
     private ResendCodeRequest resendRequest;
+    private ForgotPasswordRequest forgotPasswordRequest;
+    private ConfirmForgotPasswordRequest confirmForgotPasswordRequest;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +61,14 @@ class AuthControllerTest {
 
         resendRequest = new ResendCodeRequest();
         resendRequest.setEmail("test@example.com");
+
+        forgotPasswordRequest = new ForgotPasswordRequest();
+        forgotPasswordRequest.setEmail("test@example.com");
+
+        confirmForgotPasswordRequest = new ConfirmForgotPasswordRequest();
+        confirmForgotPasswordRequest.setEmail("test@example.com");
+        confirmForgotPasswordRequest.setConfirmationCode("123456");
+        confirmForgotPasswordRequest.setNewPassword("NewTest@1234");
     }
 
     @Test
@@ -260,5 +270,149 @@ class AuthControllerTest {
             
             verify(cognitoService).getUserProfile(mockToken);
         }
+    }
+
+    @Test
+    void forgotPassword_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "Password reset code sent to your email");
+        serviceResult.put("deliveryMedium", "EMAIL");
+        serviceResult.put("destination", "t***@e***.com");
+
+        when(cognitoService.forgotPassword(anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Password reset code sent to your email");
+        assertThat(response.getBody().getDeliveryMedium()).isEqualTo("EMAIL");
+        assertThat(response.getBody().getDestination()).isEqualTo("t***@e***.com");
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void forgotPassword_Failure_UserNotFound() {
+        // Arrange
+        when(cognitoService.forgotPassword(anyString()))
+                .thenThrow(new RuntimeException("User not found"));
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void forgotPassword_Failure_LimitExceeded() {
+        // Arrange
+        when(cognitoService.forgotPassword(anyString()))
+                .thenThrow(new RuntimeException("Too many requests. Please try again later."));
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void confirmForgotPassword_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "Password reset successfully. You can now login with your new password.");
+
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("Password reset successfully. You can now login with your new password.");
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_InvalidCode() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Invalid verification code"));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_ExpiredCode() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Verification code has expired. Please request a new one."));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_InvalidPassword() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Invalid password. Password must meet the requirements."));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_UserNotFound() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("User not found"));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
     }
 }
