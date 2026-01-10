@@ -32,7 +32,9 @@ A Spring Boot REST API with AWS Cognito authentication, built with Gradle and Op
 - **Transaction Management**: Create, update, and delete deposits/withdrawals with tags and descriptions
 - **Goal Management**: Create financial goals with institution allocation percentages (validates ownership and allocation limits)
 - **Postman Collection**: Pre-configured API testing collection with automatic token management
-- **Comprehensive Testing**: 291 tests with full coverage of all endpoints and business logic
+- **Password Reset**: Forgot password flow with email verification codes
+- **Account Management**: Update screen name, delete account with cascade deletion
+- **Comprehensive Testing**: 296 tests with full coverage of all endpoints and business logic
 
 ## Environment Configuration
 
@@ -199,6 +201,8 @@ Import the collection:
 The collection includes:
 - **Automatic JWT token saving**: Login response automatically saves idToken, accessToken, and refreshToken to environment variables
 - **Authentication flow**: Sign up → Confirm → Login workflow
+- **Password reset flow**: Forgot password → Confirm forgot password
+- **User management**: Update screen name, delete account
 - **Institution management**: Create, get, edit, delete institutions
 - **Transaction management**: Create, get, update, delete transactions
 - **Goal management**: Create goals with institution allocations, get all goals
@@ -211,16 +215,37 @@ Set `baseUrl` in your Postman environment:
 ## API Endpoints
 
 ### Authentication
+
+#### Public Endpoints (No Authentication Required)
 - `POST /api/auth/signup` - Register new user with email, password, and screen name
 - `POST /api/auth/confirm` - Confirm email with verification code
 - `POST /api/auth/resend-code` - Resend verification code
+- `POST /api/auth/forgot-password` - Initiate password reset (sends verification code via email)
+- `POST /api/auth/confirm-forgot-password` - Complete password reset with verification code and new password
 - `POST /api/auth/login` - Login and receive JWT tokens (idToken, accessToken, refreshToken)
+
+#### Protected Endpoints (Require Authentication)
 - `GET /api/secure/profile` - Get authenticated user's profile (email, screenName) **[Requires Access Token]**
+- `PATCH /api/secure/update-screen-name` - Update user's screen name (display name) **[Requires Access Token]**
+- `DELETE /api/secure/delete-account` - Permanently delete user account and all associated data **[Requires Access Token]**
 
 **Token Usage**:
 - **ID Token** (`idToken`): Use for most protected endpoints (Institutions, Transactions, Goals). Contains user identity and is validated by the JWT filter.
-- **Access Token** (`accessToken`): Required ONLY for `/api/secure/profile` endpoint, which calls AWS Cognito's GetUser API.
+- **Access Token** (`accessToken`): Required for `/api/secure/profile`, `/api/secure/update-screen-name`, and `/api/secure/delete-account` endpoints, which interact with AWS Cognito's user management APIs.
 - **Refresh Token** (`refreshToken`): Used to obtain new tokens when access/ID tokens expire (not implemented yet).
+
+**Password Reset Flow**:
+1. User requests password reset via `POST /api/auth/forgot-password` with email
+2. Cognito sends verification code to user's email
+3. User submits code and new password via `POST /api/auth/confirm-forgot-password`
+4. User can now login with new password
+
+**Account Deletion Flow**:
+1. User authenticates and calls `DELETE /api/secure/delete-account`
+2. System deletes all user's goals (updates linked institutions)
+3. System deletes all user's institutions (cascades to transactions)
+4. System deletes Cognito user account
+5. All data is permanently removed (irreversible)
 
 ### Institutions (Protected - Requires ID Token)
 - `POST /api/institutions` - Create new financial institution with starting balance
@@ -317,7 +342,7 @@ Set `baseUrl` in your Postman environment:
 
 ## Test Coverage
 
-The project maintains comprehensive test coverage with unit tests for all layers:
+The project maintains6comprehensive test coverage with unit tests for all layers:
 
 - **Total Tests**: 291 (all passing ✓)
 - **Test Execution Time**: ~7 seconds
