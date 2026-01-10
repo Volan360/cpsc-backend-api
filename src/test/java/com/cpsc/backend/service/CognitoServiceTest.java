@@ -260,6 +260,273 @@ class CognitoServiceTest {
         verify(cognitoClient).getUser(any(GetUserRequest.class));
     }
 
+    @Test
+    void updateScreenName_Success() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String newScreenName = "NewUsername123";
+        
+        UpdateUserAttributesResponse mockResponse = UpdateUserAttributesResponse.builder().build();
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenReturn(mockResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.updateScreenName(accessToken, newScreenName);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("message")).isEqualTo("Screen name updated successfully");
+        assertThat(result.get("screenName")).isEqualTo("NewUsername123");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
+    void updateScreenName_InvalidParameter_ThrowsException() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String invalidScreenName = "";
+        
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenThrow(InvalidParameterException.builder().message("Invalid parameter").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.updateScreenName(accessToken, invalidScreenName))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Invalid screen name format");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
+    void updateScreenName_CognitoError_ThrowsException() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String newScreenName = "NewUsername123";
+        
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder().message("Service error").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.updateScreenName(accessToken, newScreenName))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error updating screen name");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
+    void forgotPassword_Success() {
+        // Arrange
+        CodeDeliveryDetailsType deliveryDetails = CodeDeliveryDetailsType.builder()
+                .deliveryMedium(DeliveryMediumType.EMAIL)
+                .destination("t***@e***.com")
+                .build();
+
+        ForgotPasswordResponse mockResponse = ForgotPasswordResponse.builder()
+                .codeDeliveryDetails(deliveryDetails)
+                .build();
+
+        when(cognitoClient.forgotPassword(any(ForgotPasswordRequest.class))).thenReturn(mockResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.forgotPassword("test@example.com");
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("message")).isEqualTo("Password reset code sent to your email");
+        assertThat(result.get("deliveryMedium")).isEqualTo("EMAIL");
+        assertThat(result.get("destination")).isEqualTo("t***@e***.com");
+
+        verify(cognitoClient).forgotPassword(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    void forgotPassword_UserNotFound_ThrowsException() {
+        // Arrange
+        when(cognitoClient.forgotPassword(any(ForgotPasswordRequest.class)))
+                .thenThrow(UserNotFoundException.builder().message("User not found").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.forgotPassword("nonexistent@example.com"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("User not found");
+
+        verify(cognitoClient).forgotPassword(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    void forgotPassword_InvalidParameter_ThrowsException() {
+        // Arrange
+        when(cognitoClient.forgotPassword(any(ForgotPasswordRequest.class)))
+                .thenThrow(InvalidParameterException.builder().message("Invalid parameter").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.forgotPassword("test@example.com"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Cannot reset password for this user. Please contact support.");
+
+        verify(cognitoClient).forgotPassword(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    void forgotPassword_LimitExceeded_ThrowsException() {
+        // Arrange
+        when(cognitoClient.forgotPassword(any(ForgotPasswordRequest.class)))
+                .thenThrow(LimitExceededException.builder().message("Too many requests").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.forgotPassword("test@example.com"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Too many requests. Please try again later.");
+
+        verify(cognitoClient).forgotPassword(any(ForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_Success() {
+        // Arrange
+        ConfirmForgotPasswordResponse mockResponse = ConfirmForgotPasswordResponse.builder().build();
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenReturn(mockResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.confirmForgotPassword(
+                "test@example.com", "123456", "NewTest@1234");
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("message")).isEqualTo("Password reset successfully. You can now login with your new password.");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_CodeMismatch_ThrowsException() {
+        // Arrange
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenThrow(CodeMismatchException.builder().message("Wrong code").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.confirmForgotPassword(
+                "test@example.com", "wrong", "NewTest@1234"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Invalid verification code");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_ExpiredCode_ThrowsException() {
+        // Arrange
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenThrow(ExpiredCodeException.builder().message("Code expired").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.confirmForgotPassword(
+                "test@example.com", "123456", "NewTest@1234"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Verification code has expired. Please request a new one.");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_InvalidPassword_ThrowsException() {
+        // Arrange
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenThrow(InvalidPasswordException.builder().message("Weak password").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.confirmForgotPassword(
+                "test@example.com", "123456", "weak"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Invalid password. Password must meet the requirements.");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_UserNotFound_ThrowsException() {
+        // Arrange
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenThrow(UserNotFoundException.builder().message("User not found").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.confirmForgotPassword(
+                "test@example.com", "123456", "NewTest@1234"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("User not found");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void confirmForgotPassword_LimitExceeded_ThrowsException() {
+        // Arrange
+        when(cognitoClient.confirmForgotPassword(any(ConfirmForgotPasswordRequest.class)))
+                .thenThrow(LimitExceededException.builder().message("Too many attempts").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.confirmForgotPassword(
+                "test@example.com", "123456", "NewTest@1234"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Too many attempts. Please try again later.");
+
+        verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
+    }
+
+    @Test
+    void deleteUser_Success() {
+        // Arrange
+        String accessToken = "mock-access-token";
+        DeleteUserResponse mockResponse = DeleteUserResponse.builder().build();
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class))).thenReturn(mockResponse);
+
+        // Act
+        cognitoService.deleteUser(accessToken);
+
+        // Assert
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
+    @Test
+    void deleteUser_Failure_NotAuthorized() {
+        // Arrange
+        String accessToken = "invalid-token";
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class)))
+                .thenThrow(NotAuthorizedException.builder()
+                        .message("Not authorized")
+                        .build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.deleteUser(accessToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Not authorized to delete this user");
+
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
+    @Test
+    void deleteUser_Failure_CognitoError() {
+        // Arrange
+        String accessToken = "mock-access-token";
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder()
+                        .message("Service error")
+                        .build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.deleteUser(accessToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error deleting user account");
+
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
     /**
      * Helper method to build a mock JWT token dynamically.
      * This avoids hardcoding tokens that trigger secret detection tools.

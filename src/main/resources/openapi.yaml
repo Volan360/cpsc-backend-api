@@ -83,6 +83,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/secure/update-screen-name:
+    patch:
+      tags:
+        - Authentication
+      summary: Update user's screen name (Protected)
+      description: Updates the authenticated user's screen name (display name). Requires authentication.
+      operationId: updateScreenName
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScreenNameRequest'
+      responses:
+        '200':
+          description: Screen name updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateScreenNameResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/secure/delete-account:
+    delete:
+      tags:
+        - Authentication
+      summary: Delete user account (Protected)
+      description: Permanently deletes the authenticated user's account including all associated data (institutions, transactions, and goals). This action cannot be undone.
+      operationId: deleteAccount
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error during account deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/auth/signup:
     post:
       tags:
@@ -159,6 +219,60 @@ paths:
                 $ref: '#/components/schemas/ResendCodeResponse'
         '400':
           description: Invalid request or user already confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Initiate password reset
+      description: Sends a password reset verification code to the user's email
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset code sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForgotPasswordResponse'
+        '400':
+          description: Invalid request or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/confirm-forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Confirm password reset
+      description: Resets the user's password using the verification code sent to their email
+      operationId: confirmForgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmForgotPasswordResponse'
+        '400':
+          description: Invalid or expired verification code, or password doesn't meet requirements
           content:
             application/json:
               schema:
@@ -767,6 +881,84 @@ components:
         message:
           type: string
           example: "Verification code resent to your email"
+    
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+          description: Email address of the account to reset password for
+    
+    ForgotPasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Password reset code sent to your email"
+        deliveryMedium:
+          type: string
+          example: "EMAIL"
+          description: The medium used to deliver the reset code
+        destination:
+          type: string
+          example: "u***@e***.com"
+          description: Masked destination where the code was sent
+    
+    ConfirmForgotPasswordRequest:
+      type: object
+      required:
+        - email
+        - confirmationCode
+        - newPassword
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        confirmationCode:
+          type: string
+          example: "123456"
+          description: 6-digit verification code from email
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: "NewTest@1234"
+          description: New password that meets the password requirements
+    
+    ConfirmForgotPasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Password reset successfully. You can now login with your new password."
+    
+    UpdateScreenNameRequest:
+      type: object
+      required:
+        - screenName
+      properties:
+        screenName:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "NewUsername123"
+          description: New screen name to set for the user
+    
+    UpdateScreenNameResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Screen name updated successfully"
+        screenName:
+          type: string
+          example: "NewUsername123"
+          description: The updated screen name
     
     LoginRequest:
       type: object

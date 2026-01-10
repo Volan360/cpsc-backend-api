@@ -1,9 +1,13 @@
 package com.cpsc.backend.controller;
 
 import com.cpsc.backend.api.AuthenticationApi;
+import com.cpsc.backend.model.ConfirmForgotPasswordRequest;
+import com.cpsc.backend.model.ConfirmForgotPasswordResponse;
 import com.cpsc.backend.model.ConfirmSignUpRequest;
 import com.cpsc.backend.model.ConfirmSignUpResponse;
 import com.cpsc.backend.model.ErrorResponse;
+import com.cpsc.backend.model.ForgotPasswordRequest;
+import com.cpsc.backend.model.ForgotPasswordResponse;
 import com.cpsc.backend.model.GetProfile200Response;
 import com.cpsc.backend.model.LoginRequest;
 import com.cpsc.backend.model.LoginResponse;
@@ -11,7 +15,11 @@ import com.cpsc.backend.model.ResendCodeRequest;
 import com.cpsc.backend.model.ResendCodeResponse;
 import com.cpsc.backend.model.SignUpRequest;
 import com.cpsc.backend.model.SignUpResponse;
+import com.cpsc.backend.model.UpdateScreenNameRequest;
+import com.cpsc.backend.model.UpdateScreenNameResponse;
 import com.cpsc.backend.service.CognitoService;
+import com.cpsc.backend.service.GoalService;
+import com.cpsc.backend.service.InstitutionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,9 +35,13 @@ public class AuthController implements AuthenticationApi {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final CognitoService cognitoService;
+    private final GoalService goalService;
+    private final InstitutionService institutionService;
 
-    public AuthController(CognitoService cognitoService) {
+    public AuthController(CognitoService cognitoService, GoalService goalService, InstitutionService institutionService) {
         this.cognitoService = cognitoService;
+        this.goalService = goalService;
+        this.institutionService = institutionService;
     }
 
     @Override
@@ -92,6 +104,50 @@ public class AuthController implements AuthenticationApi {
     }
 
     @Override
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(ForgotPasswordRequest request) {
+        logger.info("Forgot password request received for email: {}", request.getEmail());
+        try {
+            Map<String, String> result = cognitoService.forgotPassword(request.getEmail());
+            
+            ForgotPasswordResponse response = new ForgotPasswordResponse();
+            response.setMessage(result.get("message"));
+            response.setDeliveryMedium(result.get("deliveryMedium"));
+            response.setDestination(result.get("destination"));
+            
+            logger.info("Password reset code sent for email: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Forgot password failed for email: {}, error: {}", request.getEmail(), e.getMessage());
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ConfirmForgotPasswordResponse> confirmForgotPassword(ConfirmForgotPasswordRequest request) {
+        logger.info("Confirm forgot password request received for email: {}", request.getEmail());
+        try {
+            Map<String, String> result = cognitoService.confirmForgotPassword(
+                request.getEmail(),
+                request.getConfirmationCode(),
+                request.getNewPassword()
+            );
+            
+            ConfirmForgotPasswordResponse response = new ConfirmForgotPasswordResponse();
+            response.setMessage(result.get("message"));
+            
+            logger.info("Password reset successful for email: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Confirm forgot password failed for email: {}, error: {}", request.getEmail(), e.getMessage());
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
     public ResponseEntity<LoginResponse> login(LoginRequest request) {
         logger.info("Login request received for email: {}", request.getEmail());
         try {
@@ -136,5 +192,59 @@ public class AuthController implements AuthenticationApi {
         response.setAuthenticated(true);
         
         return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<UpdateScreenNameResponse> updateScreenName(UpdateScreenNameRequest request) {
+        logger.info("Update screen name request received");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String accessToken = (String) authentication.getCredentials();
+            
+            Map<String, String> result = cognitoService.updateScreenName(accessToken, request.getScreenName());
+            
+            UpdateScreenNameResponse response = new UpdateScreenNameResponse();
+            response.setMessage(result.get("message"));
+            response.setScreenName(result.get("screenName"));
+            
+            logger.info("Screen name updated successfully to: {}", request.getScreenName());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Update screen name failed: {}", e.getMessage());
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteAccount() {
+        logger.info("Delete account request received");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String userId = (String) authentication.getPrincipal();
+            String accessToken = (String) authentication.getCredentials();
+            
+            logger.info("Deleting account for user: {}", userId);
+            
+            // Delete in the correct order to maintain referential integrity:
+            // 1. Delete all goals first (this will update institutions)
+            goalService.deleteAllUserGoals(userId);
+            logger.info("Deleted all goals for user: {}", userId);
+            
+            // 2. Delete all institutions (this will cascade delete all transactions)
+            institutionService.deleteAllUserInstitutions(userId);
+            logger.info("Deleted all institutions and transactions for user: {}", userId);
+            
+            // 3. Finally delete the Cognito user account
+            cognitoService.deleteUser(accessToken);
+            logger.info("Deleted Cognito account for user: {}", userId);
+            
+            logger.info("Successfully deleted account and all data for user: {}", userId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            logger.error("Delete account failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

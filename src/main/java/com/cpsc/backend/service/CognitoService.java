@@ -128,6 +128,78 @@ public class CognitoService {
     }
 
     /**
+     * Initiate forgot password flow - sends reset code to user's email
+     */
+    public Map<String, String> forgotPassword(String email) {
+        try {
+            String secretHash = calculateSecretHash(email);
+
+            ForgotPasswordRequest forgotPasswordRequest = ForgotPasswordRequest.builder()
+                    .clientId(clientId)
+                    .secretHash(secretHash)
+                    .username(email)
+                    .build();
+
+            ForgotPasswordResponse forgotPasswordResponse = cognitoClient.forgotPassword(forgotPasswordRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Password reset code sent to your email");
+            
+            if (forgotPasswordResponse.codeDeliveryDetails() != null) {
+                response.put("deliveryMedium", forgotPasswordResponse.codeDeliveryDetails().deliveryMediumAsString());
+                response.put("destination", forgotPasswordResponse.codeDeliveryDetails().destination());
+            }
+            
+            return response;
+
+        } catch (UserNotFoundException e) {
+            throw new RuntimeException("User not found");
+        } catch (InvalidParameterException e) {
+            throw new RuntimeException("Cannot reset password for this user. Please contact support.");
+        } catch (LimitExceededException e) {
+            throw new RuntimeException("Too many requests. Please try again later.");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error initiating password reset: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Confirm forgot password with verification code and new password
+     */
+    public Map<String, String> confirmForgotPassword(String email, String confirmationCode, String newPassword) {
+        try {
+            String secretHash = calculateSecretHash(email);
+
+            ConfirmForgotPasswordRequest confirmForgotPasswordRequest = ConfirmForgotPasswordRequest.builder()
+                    .clientId(clientId)
+                    .secretHash(secretHash)
+                    .username(email)
+                    .confirmationCode(confirmationCode)
+                    .password(newPassword)
+                    .build();
+
+            cognitoClient.confirmForgotPassword(confirmForgotPasswordRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Password reset successfully. You can now login with your new password.");
+            return response;
+
+        } catch (CodeMismatchException e) {
+            throw new RuntimeException("Invalid verification code");
+        } catch (ExpiredCodeException e) {
+            throw new RuntimeException("Verification code has expired. Please request a new one.");
+        } catch (InvalidPasswordException e) {
+            throw new RuntimeException("Invalid password. Password must meet the requirements.");
+        } catch (UserNotFoundException e) {
+            throw new RuntimeException("User not found");
+        } catch (LimitExceededException e) {
+            throw new RuntimeException("Too many attempts. Please try again later.");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error resetting password: " + e.getMessage());
+        }
+    }
+
+    /**
      * Authenticate a user and return JWT tokens
      * Uses email as the username
      */
@@ -197,6 +269,55 @@ public class CognitoService {
             return profile;
         } catch (CognitoIdentityProviderException e) {
             throw new RuntimeException("Error getting user profile: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Update user's screen name (preferred_username attribute)
+     * Uses the access token to identify the user
+     */
+    public Map<String, String> updateScreenName(String accessToken, String newScreenName) {
+        try {
+            AttributeType screenNameAttribute = AttributeType.builder()
+                    .name("preferred_username")
+                    .value(newScreenName)
+                    .build();
+
+            UpdateUserAttributesRequest request = UpdateUserAttributesRequest.builder()
+                    .accessToken(accessToken)
+                    .userAttributes(screenNameAttribute)
+                    .build();
+
+            cognitoClient.updateUserAttributes(request);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Screen name updated successfully");
+            response.put("screenName", newScreenName);
+            return response;
+
+        } catch (InvalidParameterException e) {
+            throw new RuntimeException("Invalid screen name format");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error updating screen name: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Delete the authenticated user's Cognito account
+     * Uses the access token to identify and delete the user
+     */
+    public void deleteUser(String accessToken) {
+        try {
+            DeleteUserRequest request = DeleteUserRequest.builder()
+                    .accessToken(accessToken)
+                    .build();
+
+            cognitoClient.deleteUser(request);
+
+        } catch (NotAuthorizedException e) {
+            throw new RuntimeException("Not authorized to delete this user");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error deleting user account: " + e.getMessage());
         }
     }
 

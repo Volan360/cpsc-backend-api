@@ -2,6 +2,8 @@ package com.cpsc.backend.controller;
 
 import com.cpsc.backend.model.*;
 import com.cpsc.backend.service.CognitoService;
+import com.cpsc.backend.service.GoalService;
+import com.cpsc.backend.service.InstitutionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +30,12 @@ class AuthControllerTest {
     private CognitoService cognitoService;
 
     @Mock
+    private GoalService goalService;
+
+    @Mock
+    private InstitutionService institutionService;
+
+    @Mock
     private Authentication authentication;
 
     @Mock
@@ -39,10 +47,13 @@ class AuthControllerTest {
     private LoginRequest loginRequest;
     private ConfirmSignUpRequest confirmRequest;
     private ResendCodeRequest resendRequest;
+    private ForgotPasswordRequest forgotPasswordRequest;
+    private ConfirmForgotPasswordRequest confirmForgotPasswordRequest;
+    private UpdateScreenNameRequest updateScreenNameRequest;
 
     @BeforeEach
     void setUp() {
-        authController = new AuthController(cognitoService);
+        authController = new AuthController(cognitoService, goalService, institutionService);
 
         signUpRequest = new SignUpRequest();
         signUpRequest.setEmail("test@example.com");
@@ -59,6 +70,17 @@ class AuthControllerTest {
 
         resendRequest = new ResendCodeRequest();
         resendRequest.setEmail("test@example.com");
+
+        forgotPasswordRequest = new ForgotPasswordRequest();
+        forgotPasswordRequest.setEmail("test@example.com");
+
+        confirmForgotPasswordRequest = new ConfirmForgotPasswordRequest();
+        confirmForgotPasswordRequest.setEmail("test@example.com");
+        confirmForgotPasswordRequest.setConfirmationCode("123456");
+        confirmForgotPasswordRequest.setNewPassword("NewTest@1234");
+
+        updateScreenNameRequest = new UpdateScreenNameRequest();
+        updateScreenNameRequest.setScreenName("NewUsername123");
     }
 
     @Test
@@ -259,6 +281,278 @@ class AuthControllerTest {
             assertThat(response.getBody().getAuthenticated()).isTrue();
             
             verify(cognitoService).getUserProfile(mockToken);
+        }
+    }
+
+    @Test
+    void forgotPassword_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "Password reset code sent to your email");
+        serviceResult.put("deliveryMedium", "EMAIL");
+        serviceResult.put("destination", "t***@e***.com");
+
+        when(cognitoService.forgotPassword(anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Password reset code sent to your email");
+        assertThat(response.getBody().getDeliveryMedium()).isEqualTo("EMAIL");
+        assertThat(response.getBody().getDestination()).isEqualTo("t***@e***.com");
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void forgotPassword_Failure_UserNotFound() {
+        // Arrange
+        when(cognitoService.forgotPassword(anyString()))
+                .thenThrow(new RuntimeException("User not found"));
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void forgotPassword_Failure_LimitExceeded() {
+        // Arrange
+        when(cognitoService.forgotPassword(anyString()))
+                .thenThrow(new RuntimeException("Too many requests. Please try again later."));
+
+        // Act
+        ResponseEntity<ForgotPasswordResponse> response = authController.forgotPassword(forgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).forgotPassword("test@example.com");
+    }
+
+    @Test
+    void confirmForgotPassword_Success() {
+        // Arrange
+        Map<String, String> serviceResult = new HashMap<>();
+        serviceResult.put("message", "Password reset successfully. You can now login with your new password.");
+
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString())).thenReturn(serviceResult);
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("Password reset successfully. You can now login with your new password.");
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_InvalidCode() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Invalid verification code"));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_ExpiredCode() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Verification code has expired. Please request a new one."));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_InvalidPassword() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Invalid password. Password must meet the requirements."));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void confirmForgotPassword_Failure_UserNotFound() {
+        // Arrange
+        when(cognitoService.confirmForgotPassword(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("User not found"));
+
+        // Act
+        ResponseEntity<ConfirmForgotPasswordResponse> response = 
+                authController.confirmForgotPassword(confirmForgotPasswordRequest);
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void updateScreenName_Success() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            Map<String, String> serviceResult = new HashMap<>();
+            serviceResult.put("message", "Screen name updated successfully");
+            serviceResult.put("screenName", "NewUsername123");
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123")).thenReturn(serviceResult);
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getMessage()).isEqualTo("Screen name updated successfully");
+            assertThat(response.getBody().getScreenName()).isEqualTo("NewUsername123");
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void updateScreenName_Failure_InvalidFormat() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123"))
+                    .thenThrow(new RuntimeException("Invalid screen name format"));
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNull();
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void updateScreenName_Failure_ServiceError() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123"))
+                    .thenThrow(new RuntimeException("Error updating screen name: Service error"));
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNull();
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void deleteAccount_Success() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String userId = "test-user-id";
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getPrincipal()).thenReturn(userId);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+
+            // Act
+            ResponseEntity<Void> response = authController.deleteAccount();
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+            assertThat(response.getBody()).isNull();
+            
+            // Verify deletion order: goals first, then institutions, then Cognito user
+            verify(goalService).deleteAllUserGoals(userId);
+            verify(institutionService).deleteAllUserInstitutions(userId);
+            verify(cognitoService).deleteUser(mockToken);
+        }
+    }
+
+    @Test
+    void deleteAccount_Failure_ServiceError() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String userId = "test-user-id";
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getPrincipal()).thenReturn(userId);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            
+            doThrow(new RuntimeException("Failed to delete goals"))
+                    .when(goalService).deleteAllUserGoals(userId);
+
+            // Act
+            ResponseEntity<Void> response = authController.deleteAccount();
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(response.getBody()).isNull();
+            
+            verify(goalService).deleteAllUserGoals(userId);
+            // Should not proceed to delete institutions or Cognito user
+            verify(institutionService, never()).deleteAllUserInstitutions(anyString());
+            verify(cognitoService, never()).deleteUser(anyString());
         }
     }
 }

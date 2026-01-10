@@ -450,4 +450,42 @@ public class InstitutionService {
             throw new InvalidInstitutionDataException("Invalid pagination token");
         }
     }
+
+    /**
+     * Delete all institutions for a user (used during account deletion)
+     * This will cascade delete all associated transactions
+     * NOTE: All goals should be deleted BEFORE calling this method to maintain referential integrity
+     */
+    public void deleteAllUserInstitutions(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        
+        try {
+            logger.info("Deleting all institutions for user {}", userId);
+            
+            List<Institution> institutions = institutionRepository.findAllByUserId(userId);
+            
+            logger.info("Found {} institutions to delete for user {}", institutions.size(), userId);
+            
+            // Don't reuse deleteInstitution() because:
+            // 1. All goals are already deleted (no need to update them)
+            // 2. We can bulk delete more efficiently
+            for (Institution institution : institutions) {
+                // Bulk delete all transactions associated with this institution
+                transactionRepository.deleteAllByInstitutionId(institution.getInstitutionId());
+                
+                // Delete the institution itself
+                institutionRepository.delete(userId, institution.getInstitutionId());
+            }
+            
+            logger.info("Successfully deleted all {} institutions and their transactions for user {}", 
+                institutions.size(), userId);
+            
+        } catch (Exception e) {
+            logger.error("Error while deleting all institutions for user {}: {}", 
+                userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete all user institutions", e);
+        }
+    }
 }
