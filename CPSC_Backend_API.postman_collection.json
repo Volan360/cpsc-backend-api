@@ -230,6 +230,40 @@
             "description": "Get authenticated user's profile including email and screen name. This endpoint requires the ACCESS TOKEN (not ID token) because it uses AWS Cognito's GetUser API."
           },
           "response": []
+        },
+        {
+          "name": "Update Screen Name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "Access token from login"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"screenName\": \"NewUsername123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/secure/update-screen-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "secure",
+                "update-screen-name"
+              ]
+            },
+            "description": "Update the authenticated user's screen name (display name). The new screen name must be between 3 and 50 characters. Requires ACCESS TOKEN."
+          },
+          "response": []
         }
       ]
     },

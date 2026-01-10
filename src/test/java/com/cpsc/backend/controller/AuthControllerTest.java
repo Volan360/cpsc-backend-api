@@ -41,6 +41,7 @@ class AuthControllerTest {
     private ResendCodeRequest resendRequest;
     private ForgotPasswordRequest forgotPasswordRequest;
     private ConfirmForgotPasswordRequest confirmForgotPasswordRequest;
+    private UpdateScreenNameRequest updateScreenNameRequest;
 
     @BeforeEach
     void setUp() {
@@ -69,6 +70,9 @@ class AuthControllerTest {
         confirmForgotPasswordRequest.setEmail("test@example.com");
         confirmForgotPasswordRequest.setConfirmationCode("123456");
         confirmForgotPasswordRequest.setNewPassword("NewTest@1234");
+
+        updateScreenNameRequest = new UpdateScreenNameRequest();
+        updateScreenNameRequest.setScreenName("NewUsername123");
     }
 
     @Test
@@ -414,5 +418,78 @@ class AuthControllerTest {
         assertThat(response.getBody()).isNull();
 
         verify(cognitoService).confirmForgotPassword("test@example.com", "123456", "NewTest@1234");
+    }
+
+    @Test
+    void updateScreenName_Success() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            Map<String, String> serviceResult = new HashMap<>();
+            serviceResult.put("message", "Screen name updated successfully");
+            serviceResult.put("screenName", "NewUsername123");
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123")).thenReturn(serviceResult);
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getMessage()).isEqualTo("Screen name updated successfully");
+            assertThat(response.getBody().getScreenName()).isEqualTo("NewUsername123");
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void updateScreenName_Failure_InvalidFormat() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123"))
+                    .thenThrow(new RuntimeException("Invalid screen name format"));
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNull();
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void updateScreenName_Failure_ServiceError() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            when(cognitoService.updateScreenName(mockToken, "NewUsername123"))
+                    .thenThrow(new RuntimeException("Error updating screen name: Service error"));
+
+            // Act
+            ResponseEntity<UpdateScreenNameResponse> response = authController.updateScreenName(updateScreenNameRequest);
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNull();
+            
+            verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
     }
 }

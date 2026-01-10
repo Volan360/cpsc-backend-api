@@ -273,6 +273,36 @@ public class CognitoService {
     }
 
     /**
+     * Update user's screen name (preferred_username attribute)
+     * Uses the access token to identify the user
+     */
+    public Map<String, String> updateScreenName(String accessToken, String newScreenName) {
+        try {
+            AttributeType screenNameAttribute = AttributeType.builder()
+                    .name("preferred_username")
+                    .value(newScreenName)
+                    .build();
+
+            UpdateUserAttributesRequest request = UpdateUserAttributesRequest.builder()
+                    .accessToken(accessToken)
+                    .userAttributes(screenNameAttribute)
+                    .build();
+
+            cognitoClient.updateUserAttributes(request);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Screen name updated successfully");
+            response.put("screenName", newScreenName);
+            return response;
+
+        } catch (InvalidParameterException e) {
+            throw new RuntimeException("Invalid screen name format");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error updating screen name: " + e.getMessage());
+        }
+    }
+
+    /**
      * Calculate the secret hash required for authentication
      */
     private String calculateSecretHash(String username) {

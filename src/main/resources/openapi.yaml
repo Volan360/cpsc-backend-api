@@ -83,6 +83,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/secure/update-screen-name:
+    patch:
+      tags:
+        - Authentication
+      summary: Update user's screen name (Protected)
+      description: Updates the authenticated user's screen name (display name). Requires authentication.
+      operationId: updateScreenName
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScreenNameRequest'
+      responses:
+        '200':
+          description: Screen name updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateScreenNameResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/auth/signup:
     post:
       tags:
@@ -876,6 +911,29 @@ components:
         message:
           type: string
           example: "Password reset successfully. You can now login with your new password."
+    
+    UpdateScreenNameRequest:
+      type: object
+      required:
+        - screenName
+      properties:
+        screenName:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "NewUsername123"
+          description: New screen name to set for the user
+    
+    UpdateScreenNameResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Screen name updated successfully"
+        screenName:
+          type: string
+          example: "NewUsername123"
+          description: The updated screen name
     
     LoginRequest:
       type: object

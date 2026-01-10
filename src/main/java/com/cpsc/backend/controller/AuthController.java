@@ -15,6 +15,8 @@ import com.cpsc.backend.model.ResendCodeRequest;
 import com.cpsc.backend.model.ResendCodeResponse;
 import com.cpsc.backend.model.SignUpRequest;
 import com.cpsc.backend.model.SignUpResponse;
+import com.cpsc.backend.model.UpdateScreenNameRequest;
+import com.cpsc.backend.model.UpdateScreenNameResponse;
 import com.cpsc.backend.service.CognitoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -184,5 +186,28 @@ public class AuthController implements AuthenticationApi {
         response.setAuthenticated(true);
         
         return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<UpdateScreenNameResponse> updateScreenName(UpdateScreenNameRequest request) {
+        logger.info("Update screen name request received");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String accessToken = (String) authentication.getCredentials();
+            
+            Map<String, String> result = cognitoService.updateScreenName(accessToken, request.getScreenName());
+            
+            UpdateScreenNameResponse response = new UpdateScreenNameResponse();
+            response.setMessage(result.get("message"));
+            response.setScreenName(result.get("screenName"));
+            
+            logger.info("Screen name updated successfully to: {}", request.getScreenName());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Update screen name failed: {}", e.getMessage());
+            ErrorResponse error = new ErrorResponse();
+            error.setError(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
     }
 }

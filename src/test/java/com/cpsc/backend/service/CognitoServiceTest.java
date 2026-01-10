@@ -261,6 +261,61 @@ class CognitoServiceTest {
     }
 
     @Test
+    void updateScreenName_Success() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String newScreenName = "NewUsername123";
+        
+        UpdateUserAttributesResponse mockResponse = UpdateUserAttributesResponse.builder().build();
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenReturn(mockResponse);
+
+        // Act
+        Map<String, String> result = cognitoService.updateScreenName(accessToken, newScreenName);
+
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.get("message")).isEqualTo("Screen name updated successfully");
+        assertThat(result.get("screenName")).isEqualTo("NewUsername123");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
+    void updateScreenName_InvalidParameter_ThrowsException() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String invalidScreenName = "";
+        
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenThrow(InvalidParameterException.builder().message("Invalid parameter").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.updateScreenName(accessToken, invalidScreenName))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Invalid screen name format");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
+    void updateScreenName_CognitoError_ThrowsException() {
+        // Arrange
+        String accessToken = "valid-access-token";
+        String newScreenName = "NewUsername123";
+        
+        when(cognitoClient.updateUserAttributes(any(UpdateUserAttributesRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder().message("Service error").build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.updateScreenName(accessToken, newScreenName))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error updating screen name");
+
+        verify(cognitoClient).updateUserAttributes(any(UpdateUserAttributesRequest.class));
+    }
+
+    @Test
     void forgotPassword_Success() {
         // Arrange
         CodeDeliveryDetailsType deliveryDetails = CodeDeliveryDetailsType.builder()
