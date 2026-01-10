@@ -18,6 +18,8 @@ import com.cpsc.backend.model.SignUpResponse;
 import com.cpsc.backend.model.UpdateScreenNameRequest;
 import com.cpsc.backend.model.UpdateScreenNameResponse;
 import com.cpsc.backend.service.CognitoService;
+import com.cpsc.backend.service.GoalService;
+import com.cpsc.backend.service.InstitutionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -33,9 +35,13 @@ public class AuthController implements AuthenticationApi {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final CognitoService cognitoService;
+    private final GoalService goalService;
+    private final InstitutionService institutionService;
 
-    public AuthController(CognitoService cognitoService) {
+    public AuthController(CognitoService cognitoService, GoalService goalService, InstitutionService institutionService) {
         this.cognitoService = cognitoService;
+        this.goalService = goalService;
+        this.institutionService = institutionService;
     }
 
     @Override
@@ -208,6 +214,37 @@ public class AuthController implements AuthenticationApi {
             ErrorResponse error = new ErrorResponse();
             error.setError(e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteAccount() {
+        logger.info("Delete account request received");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String userId = (String) authentication.getPrincipal();
+            String accessToken = (String) authentication.getCredentials();
+            
+            logger.info("Deleting account for user: {}", userId);
+            
+            // Delete in the correct order to maintain referential integrity:
+            // 1. Delete all goals first (this will update institutions)
+            goalService.deleteAllUserGoals(userId);
+            logger.info("Deleted all goals for user: {}", userId);
+            
+            // 2. Delete all institutions (this will cascade delete all transactions)
+            institutionService.deleteAllUserInstitutions(userId);
+            logger.info("Deleted all institutions and transactions for user: {}", userId);
+            
+            // 3. Finally delete the Cognito user account
+            cognitoService.deleteUser(accessToken);
+            logger.info("Deleted Cognito account for user: {}", userId);
+            
+            logger.info("Successfully deleted account and all data for user: {}", userId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            logger.error("Delete account failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

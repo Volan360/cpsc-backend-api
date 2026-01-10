@@ -303,6 +303,25 @@ public class CognitoService {
     }
 
     /**
+     * Delete the authenticated user's Cognito account
+     * Uses the access token to identify and delete the user
+     */
+    public void deleteUser(String accessToken) {
+        try {
+            DeleteUserRequest request = DeleteUserRequest.builder()
+                    .accessToken(accessToken)
+                    .build();
+
+            cognitoClient.deleteUser(request);
+
+        } catch (NotAuthorizedException e) {
+            throw new RuntimeException("Not authorized to delete this user");
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Error deleting user account: " + e.getMessage());
+        }
+    }
+
+    /**
      * Calculate the secret hash required for authentication
      */
     private String calculateSecretHash(String username) {

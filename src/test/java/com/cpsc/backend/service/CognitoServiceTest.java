@@ -476,6 +476,57 @@ class CognitoServiceTest {
         verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
     }
 
+    @Test
+    void deleteUser_Success() {
+        // Arrange
+        String accessToken = "mock-access-token";
+        DeleteUserResponse mockResponse = DeleteUserResponse.builder().build();
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class))).thenReturn(mockResponse);
+
+        // Act
+        cognitoService.deleteUser(accessToken);
+
+        // Assert
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
+    @Test
+    void deleteUser_Failure_NotAuthorized() {
+        // Arrange
+        String accessToken = "invalid-token";
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class)))
+                .thenThrow(NotAuthorizedException.builder()
+                        .message("Not authorized")
+                        .build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.deleteUser(accessToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Not authorized to delete this user");
+
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
+    @Test
+    void deleteUser_Failure_CognitoError() {
+        // Arrange
+        String accessToken = "mock-access-token";
+
+        when(cognitoClient.deleteUser(any(DeleteUserRequest.class)))
+                .thenThrow(CognitoIdentityProviderException.builder()
+                        .message("Service error")
+                        .build());
+
+        // Act & Assert
+        assertThatThrownBy(() -> cognitoService.deleteUser(accessToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error deleting user account");
+
+        verify(cognitoClient).deleteUser(any(DeleteUserRequest.class));
+    }
+
     /**
      * Helper method to build a mock JWT token dynamically.
      * This avoids hardcoding tokens that trigger secret detection tools.

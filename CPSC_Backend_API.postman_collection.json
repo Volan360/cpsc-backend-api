@@ -264,6 +264,32 @@
             "description": "Update the authenticated user's screen name (display name). The new screen name must be between 3 and 50 characters. Requires ACCESS TOKEN."
           },
           "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "description": "Access token from login"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/secure/delete-account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "secure",
+                "delete-account"
+              ]
+            },
+            "description": "Permanently delete the authenticated user's account and all associated data. This will delete: 1) All goals (updating linked institutions), 2) All institutions and their transactions, 3) The Cognito user account. This action is irreversible. Requires ACCESS TOKEN."
+          },
+          "response": []
         }
       ]
     },

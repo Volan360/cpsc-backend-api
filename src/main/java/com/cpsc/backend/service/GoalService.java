@@ -650,4 +650,35 @@ public class GoalService {
             }
         }
     }
+
+    /**
+     * Delete all goals for a user (used during account deletion)
+     * This will update all linked institutions to remove allocations and goal references
+     */
+    public void deleteAllUserGoals(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        
+        try {
+            logger.info("Deleting all goals for user {}", userId);
+            
+            List<Goal> goals = goalRepository.findAllByUserId(userId);
+            
+            logger.info("Found {} goals to delete for user {}", goals.size(), userId);
+            
+            // Reuse existing deleteGoal method which handles all institution update logic
+            for (Goal goal : goals) {
+                deleteGoal(userId, goal.getGoalId());
+            }
+            
+            logger.info("Successfully deleted all {} goals and updated all linked institutions for user {}", 
+                goals.size(), userId);
+            
+        } catch (Exception e) {
+            logger.error("Error while deleting all goals for user {}: {}", 
+                userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete all user goals", e);
+        }
+    }
 }

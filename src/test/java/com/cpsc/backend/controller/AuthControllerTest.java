@@ -2,6 +2,8 @@ package com.cpsc.backend.controller;
 
 import com.cpsc.backend.model.*;
 import com.cpsc.backend.service.CognitoService;
+import com.cpsc.backend.service.GoalService;
+import com.cpsc.backend.service.InstitutionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +30,12 @@ class AuthControllerTest {
     private CognitoService cognitoService;
 
     @Mock
+    private GoalService goalService;
+
+    @Mock
+    private InstitutionService institutionService;
+
+    @Mock
     private Authentication authentication;
 
     @Mock
@@ -45,7 +53,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        authController = new AuthController(cognitoService);
+        authController = new AuthController(cognitoService, goalService, institutionService);
 
         signUpRequest = new SignUpRequest();
         signUpRequest.setEmail("test@example.com");
@@ -490,6 +498,61 @@ class AuthControllerTest {
             assertThat(response.getBody()).isNull();
             
             verify(cognitoService).updateScreenName(mockToken, "NewUsername123");
+        }
+    }
+
+    @Test
+    void deleteAccount_Success() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String userId = "test-user-id";
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getPrincipal()).thenReturn(userId);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+
+            // Act
+            ResponseEntity<Void> response = authController.deleteAccount();
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+            assertThat(response.getBody()).isNull();
+            
+            // Verify deletion order: goals first, then institutions, then Cognito user
+            verify(goalService).deleteAllUserGoals(userId);
+            verify(institutionService).deleteAllUserInstitutions(userId);
+            verify(cognitoService).deleteUser(mockToken);
+        }
+    }
+
+    @Test
+    void deleteAccount_Failure_ServiceError() {
+        try (MockedStatic<SecurityContextHolder> securityContextHolder = mockStatic(SecurityContextHolder.class)) {
+            // Arrange
+            String userId = "test-user-id";
+            String mockToken = "mock-access-token";
+            
+            securityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.getPrincipal()).thenReturn(userId);
+            when(authentication.getCredentials()).thenReturn(mockToken);
+            
+            doThrow(new RuntimeException("Failed to delete goals"))
+                    .when(goalService).deleteAllUserGoals(userId);
+
+            // Act
+            ResponseEntity<Void> response = authController.deleteAccount();
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(response.getBody()).isNull();
+            
+            verify(goalService).deleteAllUserGoals(userId);
+            // Should not proceed to delete institutions or Cognito user
+            verify(institutionService, never()).deleteAllUserInstitutions(anyString());
+            verify(cognitoService, never()).deleteUser(anyString());
         }
     }
 }
