@@ -64,10 +64,11 @@ public class SecurityConfig {
             "http://cpsc-frontend-devl.s3-website-us-east-1.amazonaws.com",
             "http://cpsc-frontend-acpt.s3-website-us-east-1.amazonaws.com",
             "http://cpsc-frontend-prod.s3-website-us-east-1.amazonaws.com",
-            // Future CloudFront URLs (add when created)
-            "https://devl.cpsc.example.com",
-            "https://acpt.cpsc.example.com",
-            "https://www.cpsc.example.com"
+            // CloudFront URLs (custom domain)
+            "https://app-devl.fullstackcashtrack.com",
+            "https://app-acpt.fullstackcashtrack.com",
+            "https://www.fullstackcashtrack.com",
+            "https://fullstackcashtrack.com"
         ));
         
         // Allow all HTTP methods
