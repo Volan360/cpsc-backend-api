@@ -694,6 +694,48 @@
             "description": "Delete a goal and automatically update all linked institutions. The system reduces each institution's allocatedPercent by the amount allocated to this goal and removes the goal from their linkedGoals lists. Replace goalId with actual UUID from Get Goals response."
           },
           "response": []
+        },
+        {
+          "name": "Complete Goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}",
+                "description": "JWT token from login"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionIds\": [\n    \"replace-with-actual-transaction-id-1\",\n    \"replace-with-actual-transaction-id-2\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/goals/:goalId/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "goals",
+                ":goalId",
+                "complete"
+              ],
+              "variable": [
+                {
+                  "key": "goalId",
+                  "value": "replace-with-actual-goal-id",
+                  "description": "UUID of the goal to complete"
+                }
+              ]
+            },
+            "description": "Mark a goal as complete by providing transactions that sum to exactly the goal's targetAmount. The system validates that all transactions belong to the user and that their total (deposits add, withdrawals subtract) equals the target amount. On success, the goal's linkedInstitutions are cleared, isActive is set to false, completedAt is set to current timestamp, and the transaction IDs are stored in linkedTransactions. Replace goalId and transaction IDs with actual UUIDs."
+          },
+          "response": []
         }
       ]
     },

@@ -8,6 +8,7 @@ import com.cpsc.backend.model.EditGoalRequest;
 import com.cpsc.backend.model.GoalResponse;
 import com.cpsc.backend.repository.GoalRepository;
 import com.cpsc.backend.repository.InstitutionRepository;
+import com.cpsc.backend.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,13 +37,16 @@ class GoalServiceTest {
     @Mock
     private InstitutionRepository institutionRepository;
 
+    @Mock
+    private TransactionRepository transactionRepository;
+
     private GoalService goalService;
 
     private CreateGoalRequest validRequest;
 
     @BeforeEach
     void setUp() {
-        goalService = new GoalService(goalRepository, institutionRepository);
+        goalService = new GoalService(goalRepository, institutionRepository, transactionRepository);
         
         validRequest = new CreateGoalRequest();
         validRequest.setName("Emergency Fund");

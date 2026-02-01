@@ -9,6 +9,7 @@ import com.cpsc.backend.model.EditGoalRequest;
 import com.cpsc.backend.model.GoalResponse;
 import com.cpsc.backend.repository.GoalRepository;
 import com.cpsc.backend.repository.InstitutionRepository;
+import com.cpsc.backend.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,10 +32,13 @@ public class GoalService {
     
     private final GoalRepository goalRepository;
     private final InstitutionRepository institutionRepository;
+    private final TransactionRepository transactionRepository;
 
-    public GoalService(GoalRepository goalRepository, InstitutionRepository institutionRepository) {
+    public GoalService(GoalRepository goalRepository, InstitutionRepository institutionRepository,
+                      TransactionRepository transactionRepository) {
         this.goalRepository = goalRepository;
         this.institutionRepository = institutionRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     public GoalResponse createGoal(String userId, CreateGoalRequest request) {
@@ -59,6 +63,11 @@ public class GoalService {
             goal.setTargetAmount(request.getTargetAmount());
             goal.setLinkedInstitutions(new HashMap<>(linkedInstitutions));
             goal.setCreatedAt(Instant.now().getEpochSecond());
+            
+            // Set default values for new fields
+            goal.setIsActive(true);
+            goal.setLinkedTransactions(new ArrayList<>());
+            goal.setCompletedAt(null);
             
             // Calculate if goal is completed based on allocated amounts
             double totalAllocatedAmount = 0.0;
@@ -505,6 +514,17 @@ public class GoalService {
             response.setLinkedInstitutions(goal.getLinkedInstitutions());
             response.setTargetAmount(goal.getTargetAmount());
             response.setIsCompleted(goal.getIsCompleted() != null ? goal.getIsCompleted() : false);
+            response.setIsActive(goal.getIsActive() != null ? goal.getIsActive() : true);
+            
+            // Convert transaction IDs to UUIDs
+            if (goal.getLinkedTransactions() != null && !goal.getLinkedTransactions().isEmpty()) {
+                List<UUID> transactionUUIDs = goal.getLinkedTransactions().stream()
+                    .map(UUID::fromString)
+                    .collect(Collectors.toList());
+                response.setLinkedTransactions(transactionUUIDs);
+            }
+            
+            response.setCompletedAt(goal.getCompletedAt());
             response.setUserId(UUID.fromString(goal.getUserId()));
             response.setCreatedAt(goal.getCreatedAt());
             return response;
@@ -680,5 +700,191 @@ public class GoalService {
                 userId, e.getMessage(), e);
             throw new RuntimeException("Failed to delete all user goals", e);
         }
+    }
+
+    /**
+     * Complete a goal with specific transactions
+     * Validates that the provided transactions sum to exactly the goal's targetAmount
+     * Clears linkedInstitutions, sets completedAt timestamp, sets isActive to false,
+     * and stores the transaction IDs in linkedTransactions
+     */
+    public GoalResponse completeGoal(String userId, String goalId, List<String> transactionIds) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("User ID cannot be null or empty");
+        }
+        
+        if (goalId == null || goalId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Goal ID cannot be null or empty");
+        }
+        
+        if (transactionIds == null || transactionIds.isEmpty()) {
+            throw new InvalidInstitutionDataException("At least one transaction ID is required to complete a goal");
+        }
+        
+        try {
+            logger.info("Completing goal {} for user {} with {} transactions", 
+                goalId, userId, transactionIds.size());
+            
+            // First verify the goal exists and belongs to the user
+            Goal goal = goalRepository.findByUserIdAndGoalId(userId, goalId);
+            
+            if (goal == null) {
+                throw new InstitutionNotFoundException("Goal not found with ID: " + goalId);
+            }
+            
+            // Check if goal is already completed
+            if (goal.getIsActive() != null && !goal.getIsActive()) {
+                throw new InvalidInstitutionDataException("Goal is already completed");
+            }
+            
+            // Retrieve all institutions for this user to validate transactions
+            Map<String, Institution> userInstitutions = new HashMap<>();
+            List<Institution> institutions = institutionRepository.findAllByUserId(userId);
+            for (Institution institution : institutions) {
+                userInstitutions.put(institution.getInstitutionId(), institution);
+            }
+            
+            // Retrieve and validate all transactions
+            List<com.cpsc.backend.entity.Transaction> transactions = new ArrayList<>();
+            double totalAmount = 0.0;
+            
+            for (String transactionId : transactionIds) {
+                com.cpsc.backend.entity.Transaction transaction = findTransactionById(
+                    userId, transactionId, userInstitutions);
+                
+                if (transaction == null) {
+                    throw new InstitutionNotFoundException(
+                        "Transaction not found with ID: " + transactionId);
+                }
+                
+                // Add transaction amount (deposits add, withdrawals subtract)
+                if ("DEPOSIT".equalsIgnoreCase(transaction.getType())) {
+                    totalAmount += transaction.getAmount();
+                } else if ("WITHDRAWAL".equalsIgnoreCase(transaction.getType())) {
+                    totalAmount -= transaction.getAmount();
+                }
+                
+                transactions.add(transaction);
+            }
+            
+            // Validate that the total matches the target amount exactly
+            Double targetAmount = goal.getTargetAmount();
+            if (Math.abs(totalAmount - targetAmount) > 0.01) { // Allow small floating point differences
+                throw new InvalidInstitutionDataException(
+                    String.format("Transaction total (%.2f) does not match goal target amount (%.2f)", 
+                        totalAmount, targetAmount));
+            }
+            
+            logger.info("Validated {} transactions totaling {} matching target {}", 
+                transactionIds.size(), totalAmount, targetAmount);
+            
+            // Update all linked institutions to remove allocations and goal references
+            if (goal.getLinkedInstitutions() != null && !goal.getLinkedInstitutions().isEmpty()) {
+                logger.info("Removing goal {} from {} linked institutions", 
+                    goalId, goal.getLinkedInstitutions().size());
+                
+                for (Map.Entry<String, Integer> entry : goal.getLinkedInstitutions().entrySet()) {
+                    String institutionId = entry.getKey();
+                    Integer allocatedPercent = entry.getValue();
+                    
+                    try {
+                        Institution institution = institutionRepository.findByUserIdAndInstitutionId(userId, institutionId);
+                        
+                        if (institution == null) {
+                            logger.warn("Institution {} not found for goal {}, skipping", institutionId, goalId);
+                            continue;
+                        }
+                        
+                        // Reduce allocated percent
+                        Integer currentAllocation = institution.getAllocatedPercent() != null 
+                            ? institution.getAllocatedPercent() : 0;
+                        institution.setAllocatedPercent(currentAllocation - allocatedPercent);
+                        
+                        // Remove goal from linkedGoals list
+                        if (institution.getLinkedGoals() != null) {
+                            institution.getLinkedGoals().remove(goalId);
+                        }
+                        
+                        institutionRepository.save(institution);
+                        
+                        logger.debug("Removed allocation {}% and goal reference from institution {}", 
+                            allocatedPercent, institutionId);
+                        
+                    } catch (Exception e) {
+                        logger.error("Error updating institution {} while completing goal {}: {}", 
+                            institutionId, goalId, e.getMessage(), e);
+                        // Continue with other institutions
+                    }
+                }
+            }
+            
+            // Update the goal
+            goal.setLinkedInstitutions(new HashMap<>()); // Clear linked institutions
+            goal.setLinkedTransactions(new ArrayList<>(transactionIds)); // Set transaction IDs
+            goal.setCompletedAt(Instant.now().getEpochSecond()); // Set completion timestamp
+            goal.setIsActive(false); // Mark as inactive
+            goal.setIsCompleted(true); // Mark as completed
+            
+            goalRepository.save(goal);
+            
+            logger.info("Successfully completed goal {} for user {} with {} transactions totaling {}", 
+                goalId, userId, transactionIds.size(), totalAmount);
+            
+            return mapToResponse(goal);
+            
+        } catch (InstitutionNotFoundException | InvalidInstitutionDataException e) {
+            throw e; // Re-throw business logic exceptions
+        } catch (DynamoDbException e) {
+            logger.error("DynamoDB error while completing goal {} for user {}: {}", 
+                goalId, userId, e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while completing goal {} for user {}: {}", 
+                goalId, userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to complete goal", e);
+        }
+    }
+    
+    /**
+     * Helper method to find a transaction by ID across all user institutions
+     */
+    private com.cpsc.backend.entity.Transaction findTransactionById(
+            String userId, String transactionId, Map<String, Institution> userInstitutions) {
+        
+        // Search through all user's institutions to find the transaction
+        for (Institution institution : userInstitutions.values()) {
+            List<com.cpsc.backend.entity.Transaction> transactions = 
+                new ArrayList<>();
+            
+            try {
+                // Use the repository to get all transactions for this institution
+                transactions = new ArrayList<>();
+                // We need to use a different approach - query each institution
+                String institutionId = institution.getInstitutionId();
+                List<com.cpsc.backend.entity.Transaction> instTransactions = 
+                    getTransactionsByInstitution(institutionId);
+                
+                for (com.cpsc.backend.entity.Transaction transaction : instTransactions) {
+                    if (transactionId.equals(transaction.getTransactionId()) && 
+                        userId.equals(transaction.getUserId())) {
+                        return transaction;
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Error searching for transaction {} in institution {}: {}", 
+                    transactionId, institution.getInstitutionId(), e.getMessage());
+                // Continue searching other institutions
+            }
+        }
+        
+        return null; // Transaction not found
+    }
+    
+    /**
+     * Helper method to get transactions for an institution
+     * This delegates to the repository
+     */
+    private List<com.cpsc.backend.entity.Transaction> getTransactionsByInstitution(String institutionId) {
+        return transactionRepository.findAllByInstitutionId(institutionId);
     }
 }
