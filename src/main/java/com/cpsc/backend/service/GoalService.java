@@ -757,12 +757,15 @@ public class GoalService {
                         "Transaction not found with ID: " + transactionId);
                 }
                 
-                // Add transaction amount (deposits add, withdrawals subtract)
-                if ("DEPOSIT".equalsIgnoreCase(transaction.getType())) {
-                    totalAmount += transaction.getAmount();
-                } else if ("WITHDRAWAL".equalsIgnoreCase(transaction.getType())) {
-                    totalAmount -= transaction.getAmount();
+                // Goal completion must use WITHDRAWAL transactions only
+                if (!"WITHDRAWAL".equalsIgnoreCase(transaction.getType())) {
+                    throw new InvalidInstitutionDataException(
+                        "Goal completion requires WITHDRAWAL transactions. Transaction " + 
+                        transactionId + " is type: " + transaction.getType());
                 }
+                
+                // Sum the withdrawal amounts to get the total
+                totalAmount += transaction.getAmount();
                 
                 transactions.add(transaction);
             }
