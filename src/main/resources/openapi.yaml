@@ -798,6 +798,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/goals/{goalId}/complete:
+    post:
+      tags:
+        - Goals
+      summary: Complete a goal with specific transactions
+      description: Marks a goal as complete by validating that the provided transactions sum up to exactly the goal's targetAmount. Clears linkedInstitutions, sets completedAt timestamp, sets isActive to false, and stores the transaction IDs in linkedTransactions.
+      operationId: completeGoal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the goal to complete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteGoalRequest'
+      responses:
+        '200':
+          description: Goal completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+        '400':
+          description: Invalid request data or transactions do not sum to target amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Goal or one or more transactions not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1276,6 +1325,19 @@ components:
             "660e8400-e29b-41d4-a716-446655440001": 40
           description: Updated map of institution IDs to percentage allocations. Replaces existing allocations completely.
 
+    CompleteGoalRequest:
+      type: object
+      required:
+        - transactionIds
+      properties:
+        transactionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["123e4567-e89b-12d3-a456-426614174000", "223e4567-e89b-12d3-a456-426614174001"]
+          description: List of transaction IDs that sum up to exactly the goal's targetAmount
+
     GoalResponse:
       type: object
       properties:
@@ -1309,6 +1371,22 @@ components:
           type: boolean
           example: false
           description: Whether the goal has been completed (allocated amounts >= target amount)
+        isActive:
+          type: boolean
+          example: true
+          description: Whether the goal is currently active (false if completed via completeGoal endpoint)
+        linkedTransactions:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["123e4567-e89b-12d3-a456-426614174000", "223e4567-e89b-12d3-a456-426614174001"]
+          description: List of transaction IDs that were used to complete the goal
+        completedAt:
+          type: integer
+          format: int64
+          example: 1735041600
+          description: UNIX timestamp (seconds since epoch) when the goal was completed via completeGoal endpoint (null if not completed)
         userId:
           type: string
           format: uuid

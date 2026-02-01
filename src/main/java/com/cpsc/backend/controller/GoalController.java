@@ -72,6 +72,22 @@ public class GoalController implements GoalsApi {
         return ResponseEntity.noContent().build();
     }
 
+    @Override
+    public ResponseEntity<GoalResponse> completeGoal(UUID goalId, com.cpsc.backend.model.CompleteGoalRequest completeGoalRequest) {
+        String userId = getAuthenticatedUserId();
+        
+        logger.info("Request to complete goal {} from user {} with {} transactions", 
+            goalId, userId, completeGoalRequest.getTransactionIds().size());
+        
+        // Convert UUIDs to strings
+        List<String> transactionIds = completeGoalRequest.getTransactionIds().stream()
+            .map(UUID::toString)
+            .collect(java.util.stream.Collectors.toList());
+        
+        GoalResponse response = goalService.completeGoal(userId, goalId.toString(), transactionIds);
+        return ResponseEntity.ok(response);
+    }
+
     private String getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         

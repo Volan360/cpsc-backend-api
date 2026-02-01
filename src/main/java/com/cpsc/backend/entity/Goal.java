@@ -4,6 +4,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
+import java.util.List;
 import java.util.Map;
 
 @DynamoDbBean
@@ -16,6 +17,9 @@ public class Goal {
     private Map<String, Integer> linkedInstitutions;
     private Double targetAmount;
     private Boolean isCompleted;
+    private Boolean isActive;
+    private List<String> linkedTransactions;
+    private Long completedAt;
     private Long createdAt;
 
     public Goal() {
@@ -77,6 +81,30 @@ public class Goal {
 
     public void setIsCompleted(Boolean isCompleted) {
         this.isCompleted = isCompleted;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public List<String> getLinkedTransactions() {
+        return linkedTransactions;
+    }
+
+    public void setLinkedTransactions(List<String> linkedTransactions) {
+        this.linkedTransactions = linkedTransactions;
+    }
+
+    public Long getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(Long completedAt) {
+        this.completedAt = completedAt;
     }
 
     public Long getCreatedAt() {
