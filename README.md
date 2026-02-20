@@ -31,6 +31,7 @@ A Spring Boot REST API with AWS Cognito authentication, built with Gradle and Op
 - **Institution Management**: Create, edit, and delete financial institutions with starting/current balances
 - **Transaction Management**: Create, update, and delete deposits/withdrawals with tags and descriptions
 - **Goal Management**: Create financial goals with institution allocation percentages (validates ownership and allocation limits)
+- **Analytics (Lambda-backed)**: Financial analytics and HTML report generation via AWS Lambda — cash flow, category breakdown, goal progress, institution analysis, network analysis, and composite health scoring
 - **Postman Collection**: Pre-configured API testing collection with automatic token management
 - **Password Reset**: Forgot password flow with email verification codes
 - **Account Management**: Update screen name, delete account with cascade deletion
@@ -62,6 +63,20 @@ The application requires AWS credentials and environment-specific configuration:
   - **acpt**: `Goals-acpt`
   - **prod**: `Goals-prod`
 
+- `LAMBDA_ANALYTICS_FUNCTION`: Name of the analytics Lambda function (default: `cpsc-analytics-generate-devl`)
+  - **devl**: `cpsc-analytics-generate-devl`
+  - **acpt**: `cpsc-analytics-generate-acpt`
+  - **prod**: `cpsc-analytics-generate-prod`
+
+- `LAMBDA_REPORT_FUNCTION`: Name of the report Lambda function (default: `cpsc-analytics-report-devl`)
+  - **devl**: `cpsc-analytics-report-devl`
+  - **acpt**: `cpsc-analytics-report-acpt`
+  - **prod**: `cpsc-analytics-report-prod`
+
+- `LAMBDA_ENDPOINT_URL`: Lambda endpoint URL override (default: empty — uses real AWS Lambda)
+  - **Local development**: `http://localhost:9001` (points to the local Lambda server in `cpsc-analytics-scripts`)
+  - **AWS**: Leave empty
+
 - `AWS_REGION`: AWS region (default: `us-east-1`)
 
 ### Local Development
@@ -83,7 +98,24 @@ $env:DYNAMODB_TABLE_NAME = "Institutions-devl"
 $env:DYNAMODB_TRANSACTION_TABLE_NAME = "Transactions-devl"
 $env:DYNAMODB_GOALS_TABLE_NAME = "Goals-devl"
 $env:AWS_REGION = "us-east-1"
+$env:LAMBDA_ENDPOINT_URL = "http://localhost:9001"  # Points to local Lambda server
 ```
+
+The easiest way to run locally is with the provided scripts, which handle environment variable loading automatically:
+
+**Terminal 1 — Analytics Lambda server** (required for analytics endpoints):
+```powershell
+cd cpsc-analytics-scripts
+.\run-local.ps1
+```
+
+**Terminal 2 — Spring Boot API**:
+```powershell
+cd cpsc-backend-api
+.\run-local.ps1
+```
+
+`run-local.ps1` in the backend repo reads `.env.local`, auto-sets `LAMBDA_ENDPOINT_URL=http://localhost:9001` if not already configured, and starts the application. See `.env.local` to customise values.
 
 ## Deployment
 
@@ -206,6 +238,7 @@ The collection includes:
 - **Institution management**: Create, get, edit, delete institutions
 - **Transaction management**: Create, get, update, delete transactions
 - **Goal management**: Create goals with institution allocations, get all goals
+- **Analytics**: Generate analytics data (cash flow, categories, goals, institutions, network, health), health score, and HTML reports
 - **Protected endpoint examples**: All endpoints use proper Bearer token authentication
 
 **Environment Variable Setup**:
@@ -336,6 +369,155 @@ Set `baseUrl` in your Postman environment:
 - **Deleting a goal** automatically:
   - Reduces each linked institution's `allocatedPercent` by the amount allocated to the goal
   - Removes the goal ID from each linked institution's `linkedGoals` list
+
+### Analytics (Protected - Requires ID Token)
+
+Analytics endpoints delegate computation to AWS Lambda functions in `cpsc-analytics-scripts`. For local development, start the Lambda server (`cpsc-analytics-scripts/run-local.ps1`) before calling these endpoints.
+
+#### `POST /api/analytics/generate` — Generate Analytics Data
+
+Invokes the analytics Lambda to compute metrics for the specified type and date range.
+
+**Request body**:
+```json
+{
+  "analyticsType": "cash_flow",
+  "dateRange": { "start": "2025-01-01", "end": "2025-12-31" },
+  "options": { "groupBy": "month" }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `analyticsType` | string | Yes | One of: `cash_flow`, `categories`, `goals`, `institutions`, `network`, `health` |
+| `dateRange` | object | Yes (except `goals`) | `start` and `end` dates in `YYYY-MM-DD` format |
+| `options` | object | No | Optional settings — see per-type details below |
+
+**Analytics types**:
+
+| Type | `dateRange` | `options` | What it computes |
+|------|-------------|-----------|-----------------|
+| `cash_flow` | Required | `groupBy`: `day`/`week`/`month` (default `month`) | Running totals of deposits vs withdrawals in each time bucket |
+| `categories` | Required | — | Spending breakdown by transaction tags with totals and percentages |
+| `goals` | **Not required** (snapshot) | — | Current progress, completion status, at-risk goals, priority ranking, and allocation details for all goals |
+| `institutions` | Required | — | Per-institution balance trends and transaction volumes |
+| `network` | Required | — | Relationships between institutions and goals with allocation percentages |
+| `health` | Required | `includeRecommendations`: boolean (default `true`) | Composite health score (0–100) across 5 dimensions — see `/health-score` for the dedicated endpoint |
+
+**Response**:
+```json
+{
+  "analyticsType": "cash_flow",
+  "userId": "cognito-sub-here",
+  "generatedAt": "2026-02-19T10:30:00Z",
+  "dateRange": { "start": "2025-01-01", "end": "2025-12-31" },
+  "data": { ... }
+}
+```
+`data` structure varies by `analyticsType`. `dateRange` is omitted from the response when not applicable (e.g. `goals`).
+
+---
+
+#### `POST /api/analytics/report` — Generate HTML Report
+
+Invokes the report Lambda to generate a styled HTML report, uploads it to S3, and returns a presigned URL valid for 30 days.
+
+**Request body**:
+```json
+{
+  "reportType": "comprehensive",
+  "dateRange": { "start": "2025-01-01", "end": "2025-12-31" },
+  "options": {
+    "groupBy": "month",
+    "includeRecommendations": true,
+    "userName": "John Doe"
+  }
+}
+```
+
+| `reportType` | What's included |
+|--------------|----------------|
+| `cash_flow` | Monthly/weekly income vs expense chart |
+| `category` | Tag-based spending breakdown with percentages |
+| `goal` | Progress bars, completion status, and projections for all goals |
+| `health_score` | Score gauges, component breakdown, and recommendations |
+| `network` | Institution-goal relationship diagram with allocation percentages |
+| `comprehensive` | All of the above in a single document |
+
+**Response**:
+```json
+{
+  "reportType": "cash_flow",
+  "userId": "cognito-sub-here",
+  "generatedAt": "2026-02-19T10:30:00Z",
+  "dateRange": { "start": "2025-01-01", "end": "2025-12-31" },
+  "reportUrl": "https://s3.amazonaws.com/cpsc-analytics-devl/reports/...",
+  "s3Key": "reports/user/2025/01/01/cash_flow_report_100000.html",
+  "bucket": "cpsc-analytics-devl"
+}
+```
+
+---
+
+#### `GET /api/analytics/health-score` — Financial Health Score
+
+Returns the composite financial health score (0–100) for the authenticated user. Shortcut for `POST /api/analytics/generate` with `analyticsType: health` that extracts and maps the structured score fields directly.
+
+**Query parameters** (both optional — default to last 30 days):
+- `startDate` — `YYYY-MM-DD`
+- `endDate` — `YYYY-MM-DD`
+
+**Example**: `GET /api/analytics/health-score?startDate=2025-01-01&endDate=2025-12-31`
+
+**Response**:
+```json
+{
+  "overallScore": 78.5,
+  "rating": "Good",
+  "components": {
+    "savings_rate": 82.0,
+    "goal_progress": 65.0,
+    "spending_diversity": 88.0,
+    "account_utilization": 74.0,
+    "transaction_regularity": 83.5
+  },
+  "recommendations": [
+    "Increase allocation to your Emergency Fund goal",
+    "Consider diversifying spending across more categories"
+  ],
+  "periodDays": 365,
+  "computedAt": "2026-02-19T10:30:00Z",
+  "userId": "cognito-sub-here"
+}
+```
+
+| Rating | Score range |
+|--------|------------|
+| Excellent | 90–100 |
+| Good | 75–89 |
+| Fair | 60–74 |
+| Poor | 45–59 |
+| Needs Improvement | 0–44 |
+
+---
+
+#### Analytics Architecture
+
+```
+POST /api/analytics/*
+  └─ AnalyticsController
+       ├─ Builds Lambda event: { requestContext.authorizer.claims.sub, body: "{...}" }
+       ├─ LambdaInvokerService.invoke(functionName, event)
+       │    ├─ Local:  HTTP POST http://localhost:9001/2015-03-31/functions/{name}/invocations
+       │    └─ AWS:    SDK invocation of cpsc-analytics-generate-devl / cpsc-analytics-report-devl
+       └─ Parses Lambda proxy response → maps to OpenAPI model
+```
+
+**Lambda functions** (in `cpsc-analytics-scripts`):
+- `cpsc-analytics-generate-devl` → `analytics_handler.handler`
+- `cpsc-analytics-report-devl` → `report_handler.handler`
+
+**Local Lambda server**: `cpsc-analytics-scripts/local_lambda_server.py` — pure Python stdlib HTTP server on port 9001, no extra dependencies required.
 
 ### Public Endpoints
 - `GET /api/hello` - Health check endpoint
