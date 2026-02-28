@@ -899,14 +899,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"analyticsType\": \"network\",\n  \"dateRange\": {\n    \"start\": \"2025-01-01\",\n    \"end\": \"2025-12-31\"\n  }\n}"
+              "raw": "{\n  \"analyticsType\": \"network\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/analytics/generate",
               "host": ["{{baseUrl}}"],
               "path": ["api", "analytics", "generate"]
             },
-            "description": "Analyze the network of relationships between institutions and goals, showing how money flows through linked accounts."
+            "description": "Analyze the all-time network of relationships between institutions, goals, and spending categories. No dateRange required - the network graph always uses the full transaction history."
           },
           "response": []
         },
@@ -1119,14 +1119,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reportType\": \"network\",\n  \"dateRange\": {\n    \"start\": \"2025-01-01\",\n    \"end\": \"2025-12-31\"\n  },\n  \"options\": {\n    \"userName\": \"John Doe\"\n  }\n}"
+              "raw": "{\n  \"reportType\": \"network\",\n  \"options\": {\n    \"userName\": \"John Doe\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/analytics/report",
               "host": ["{{baseUrl}}"],
               "path": ["api", "analytics", "report"]
             },
-            "description": "Generate a styled HTML institution-goal network report showing how institutions are linked to goals and allocation percentages."
+            "description": "Generate a styled HTML institution-goal network report showing how institutions are linked to goals, spending categories, and allocation percentages. No dateRange required - the network graph always uses the full transaction history."
           },
           "response": []
         },

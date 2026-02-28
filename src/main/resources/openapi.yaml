@@ -854,7 +854,11 @@ paths:
       tags:
         - Analytics
       summary: Generate analytics data
-      description: Invokes the analytics Lambda function to compute metrics for the specified type and date range
+      description: |
+        Invokes the analytics Lambda function to compute metrics for the specified type and date range.
+        
+        **Note:** `dateRange` is optional for `network` analytics — the network graph is always
+        computed over all-time data regardless of any supplied date range.
       operationId: generateAnalytics
       security:
         - bearerAuth: []
@@ -895,7 +899,11 @@ paths:
       tags:
         - Analytics
       summary: Generate an HTML analytics report
-      description: Invokes the report Lambda function to generate a styled HTML report uploaded to S3, returning a presigned URL
+      description: |
+        Invokes the report Lambda function to generate a styled HTML report uploaded to S3, returning a presigned URL.
+        
+        **Note:** `dateRange` is optional for `network` reports — the network graph is always
+        computed over all-time data regardless of any supplied date range.
       operationId: generateReport
       security:
         - bearerAuth: []
@@ -1576,7 +1584,9 @@ components:
             - institutions
             - network
             - health
-          description: Type of analytics to compute
+          description: |
+            Type of analytics to compute.
+            `dateRange` is required for all types except `goals`, `institutions`, and `network`.
           example: "cash_flow"
         dateRange:
           $ref: '#/components/schemas/AnalyticsDateRange'
@@ -1618,7 +1628,9 @@ components:
             - network
             - health_score
             - comprehensive
-          description: Type of report to generate
+          description: |
+            Type of report to generate.
+            `dateRange` is required for all types except `goal` and `network`.
           example: "cash_flow"
         dateRange:
           $ref: '#/components/schemas/AnalyticsDateRange'

@@ -370,6 +370,7 @@ Set `baseUrl` in your Postman environment:
   - Reduces each linked institution's `allocatedPercent` by the amount allocated to the goal
   - Removes the goal ID from each linked institution's `linkedGoals` list
 
+(use these to inform frontend implementation)
 ### Analytics (Protected - Requires ID Token)
 
 Analytics endpoints delegate computation to AWS Lambda functions in `cpsc-analytics-scripts`. For local development, start the Lambda server (`cpsc-analytics-scripts/run-local.ps1`) before calling these endpoints.
